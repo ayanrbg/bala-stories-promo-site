@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bala Stories</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Login Page -->
+  <div id="login-page" class="page active">
+    <div class="login-container">
+      <h1 class="logo">Bala Stories</h1>
+      <form id="login-form">
+        <div class="form-group">
+          <label for="login-input">Логин</label>
+          <input type="text" id="login-input" placeholder="Введите логин" required>
+        </div>
+        <div class="form-group">
+          <label for="password-input">Пароль</label>
+          <input type="password" id="password-input" placeholder="Введите пароль" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Войти</button>
+        <p id="login-error" class="error-text"></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- Admin Panel -->
+  <div id="admin-page" class="page">
+    <header class="header">
+      <h1 class="logo-sm">Bala Stories</h1>
+      <nav class="nav">
+        <button class="nav-btn active" data-tab="dashboard">Дашборд</button>
+        <button class="nav-btn" data-tab="bloggers">Блогеры</button>
+        <button class="nav-btn" data-tab="premium">Премиум промокоды</button>
+      </nav>
+      <button id="logout-btn" class="btn btn-outline">Выйти</button>
+    </header>
+
+    <!-- Dashboard Tab -->
+    <div id="tab-dashboard" class="tab-content active">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-value" id="stat-bloggers">0</span>
+          <span class="stat-label">Блогеров</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value" id="stat-entered">0</span>
+          <span class="stat-label">Вводов промокодов</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value" id="stat-purchased">0</span>
+          <span class="stat-label">Покупок</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value" id="stat-conversion">0%</span>
+          <span class="stat-label">Конверсия</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bloggers Tab -->
+    <div id="tab-bloggers" class="tab-content">
+      <div class="tab-header">
+        <h2>Блогеры</h2>
+        <button id="add-blogger-btn" class="btn btn-primary">+ Создать блогера</button>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Имя</th>
+            <th>Логин</th>
+            <th>Промокод</th>
+            <th>Вводы</th>
+            <th>Покупки</th>
+            <th>Конверсия</th>
+            <th>Создан</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="bloggers-table-body"></tbody>
+      </table>
+    </div>
+
+    <!-- Premium Tab -->
+    <div id="tab-premium" class="tab-content">
+      <div class="tab-header">
+        <h2>Промокоды премиума</h2>
+        <div class="inline-form">
+          <input type="text" id="premium-code-input" placeholder="Код (авто)" class="input-sm">
+          <input type="number" id="premium-days-input" placeholder="Дни" min="1" value="7" class="input-sm">
+          <button id="create-premium-btn" class="btn btn-primary">Создать</button>
+        </div>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Код</th>
+            <th>Длительность</th>
+            <th>Статус</th>
+            <th>Использован кем</th>
+            <th>Создан</th>
+          </tr>
+        </thead>
+        <tbody id="premium-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Blogger Panel -->
+  <div id="blogger-page" class="page">
+    <header class="header">
+      <h1 class="logo-sm">Bala Stories</h1>
+      <div class="header-right">
+        <span id="blogger-name-header"></span>
+        <button id="blogger-logout-btn" class="btn btn-outline">Выйти</button>
+      </div>
+    </header>
+
+    <div class="blogger-content">
+      <div class="promo-card">
+        <span class="promo-label">Ваш промокод</span>
+        <div class="promo-code-display">
+          <span id="blogger-promo-code"></span>
+          <button id="copy-promo-btn" class="btn btn-icon" title="Копировать">📋</button>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-value" id="blogger-entered">0</span>
+          <span class="stat-label">Вводов</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value" id="blogger-purchased">0</span>
+          <span class="stat-label">Покупок</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value" id="blogger-conversion">0%</span>
+          <span class="stat-label">Конверсия</span>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <h3>Статистика за 30 дней</h3>
+        <div id="chart-area" class="chart-area"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Create Blogger -->
+  <div id="modal-overlay" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Создать блогера</h3>
+        <button id="modal-close" class="btn btn-icon">✕</button>
+      </div>
+      <form id="create-blogger-form">
+        <div class="form-group">
+          <label>Имя</label>
+          <input type="text" id="cb-name" required>
+        </div>
+        <div class="form-group">
+          <label>Логин</label>
+          <div class="input-with-btn">
+            <input type="text" id="cb-login" required>
+            <button type="button" class="btn btn-sm" onclick="generateField('cb-login')">Сгенерировать</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Пароль</label>
+          <div class="input-with-btn">
+            <input type="text" id="cb-password" required>
+            <button type="button" class="btn btn-sm" onclick="generateField('cb-password')">Сгенерировать</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Промокод</label>
+          <div class="input-with-btn">
+            <input type="text" id="cb-promo" required>
+            <button type="button" class="btn btn-sm" onclick="generateField('cb-promo')">Сгенерировать</button>
+          </div>
+        </div>
+        <div id="cb-credentials" class="credentials-box" style="display:none">
+          <p><strong>Сохраните данные:</strong></p>
+          <p>Логин: <span id="cb-cred-login"></span></p>
+          <p>Пароль: <span id="cb-cred-password"></span></p>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full">Создать</button>
+        <p id="cb-error" class="error-text"></p>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

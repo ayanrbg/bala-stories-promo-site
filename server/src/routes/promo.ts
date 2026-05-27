@@ -1,0 +1,99 @@
+import { Router, Request, Response } from 'express';
+import { PrismaClient } from '@prisma/client';
+import { requireApiKey } from '../middleware/auth';
+
+const router = Router();
+const prisma = new PrismaClient();
+
+router.use(requireApiKey);
+
+// Check/apply promo code (unified endpoint)
+router.post('/check', async (req: Request, res: Response): Promise<void> => {
+  const { code, externalUserId } = req.body;
+
+  if (!code) {
+    res.status(400).json({ error: 'Код обязателен' });
+    return;
+  }
+
+  // Check if it's a blogger promo code
+  const blogger = await prisma.blogger.findUnique({
+    where: { promoCode: code }
+  });
+
+  if (blogger) {
+    await prisma.promoUse.create({
+      data: {
+        bloggerId: blogger.id,
+        action: 'ENTERED',
+        externalUserId: externalUserId || null
+      }
+    });
+
+    res.json({
+      type: 'blogger',
+      bloggerName: blogger.name
+    });
+    return;
+  }
+
+  // Check if it's a premium promo code
+  const premiumPromo = await prisma.premiumPromo.findUnique({
+    where: { code }
+  });
+
+  if (premiumPromo) {
+    if (premiumPromo.used) {
+      res.status(410).json({ error: 'Промокод уже использован' });
+      return;
+    }
+
+    await prisma.premiumPromo.update({
+      where: { id: premiumPromo.id },
+      data: {
+        used: true,
+        usedBy: externalUserId || null,
+        usedAt: new Date()
+      }
+    });
+
+    res.json({
+      type: 'premium',
+      durationDays: premiumPromo.durationDays
+    });
+    return;
+  }
+
+  res.status(404).json({ error: 'Промокод не найден' });
+});
+
+// Record purchase for blogger promo code
+router.post('/purchase', async (req: Request, res: Response): Promise<void> => {
+  const { code, externalUserId } = req.body;
+
+  if (!code) {
+    res.status(400).json({ error: 'Код обязателен' });
+    return;
+  }
+
+  const blogger = await prisma.blogger.findUnique({
+    where: { promoCode: code }
+  });
+
+  if (!blogger) {
+    res.status(404).json({ error: 'Промокод блогера не найден' });
+    return;
+  }
+
+  await prisma.promoUse.create({
+    data: {
+      bloggerId: blogger.id,
+      action: 'PURCHASED',
+      externalUserId: externalUserId || null
+    }
+  });
+
+  res.json({ success: true });
+});
+
+export default router;

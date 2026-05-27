@@ -1,0 +1,42 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Blogger {
+  id           String     @id @default(uuid())
+  login        String     @unique
+  passwordHash String
+  name         String
+  promoCode    String     @unique
+  createdAt    DateTime   @default(now())
+  promoUses    PromoUse[]
+}
+
+enum PromoAction {
+  ENTERED
+  PURCHASED
+}
+
+model PromoUse {
+  id              String      @id @default(uuid())
+  blogger         Blogger     @relation(fields: [bloggerId], references: [id], onDelete: Cascade)
+  bloggerId       String
+  action          PromoAction
+  externalUserId  String?
+  createdAt       DateTime    @default(now())
+}
+
+model PremiumPromo {
+  id           String    @id @default(uuid())
+  code         String    @unique
+  durationDays Int
+  used         Boolean   @default(false)
+  usedBy       String?
+  usedAt       DateTime?
+  createdAt    DateTime  @default(now())
+}
