@@ -1,4 +1,16 @@
 const API = '/api';
+
+function togglePassword() {
+  const input = document.getElementById('password-input');
+  const btn = input.nextElementSibling;
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = '🙈';
+  } else {
+    input.type = 'password';
+    btn.textContent = '👁';
+  }
+}
 let accessToken = localStorage.getItem('accessToken');
 let currentRole = localStorage.getItem('role');
 
