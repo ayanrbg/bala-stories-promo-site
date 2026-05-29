@@ -43,6 +43,7 @@
 
     <!-- Dashboard Tab -->
     <div id="tab-dashboard" class="tab-content active">
+      <h3 class="section-title">Общая статистика</h3>
       <div class="stats-grid">
         <div class="stat-card">
           <span class="stat-value" id="stat-bloggers">0</span>
@@ -61,6 +62,7 @@
           <span class="stat-label">Конверсия</span>
         </div>
       </div>
+      <div id="app-stats-section"></div>
     </div>
 
     <!-- Bloggers Tab -->
@@ -75,6 +77,7 @@
             <th>Имя</th>
             <th>Логин</th>
             <th>Промокод</th>
+            <th>Приложения</th>
             <th>Вводы</th>
             <th>Покупки</th>
             <th>Конверсия</th>
@@ -130,6 +133,7 @@
         </div>
       </div>
 
+      <h3 class="section-title">Общая статистика</h3>
       <div class="stats-grid">
         <div class="stat-card">
           <span class="stat-value" id="blogger-entered">0</span>
@@ -144,6 +148,7 @@
           <span class="stat-label">Конверсия</span>
         </div>
       </div>
+      <div id="blogger-app-stats-section"></div>
 
       <div class="chart-container">
         <h3>Статистика за 30 дней</h3>
@@ -183,6 +188,19 @@
           <div class="input-with-btn">
             <input type="text" id="cb-promo" required>
             <button type="button" class="btn btn-sm" onclick="generateField('cb-promo')">Сгенерировать</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Приложения</label>
+          <div class="checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="cb-app-bala" value="BALA_STORIES" checked>
+              Bala Stories
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="cb-app-islamic" value="ISLAMIC_TALES">
+              Исламские сказки
+            </label>
           </div>
         </div>
         <div id="cb-credentials" class="credentials-box" style="display:none">

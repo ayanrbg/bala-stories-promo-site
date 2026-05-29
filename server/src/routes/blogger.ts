@@ -23,6 +23,7 @@ router.get('/me', async (req: Request, res: Response): Promise<void> => {
     name: blogger.name,
     login: blogger.login,
     promoCode: blogger.promoCode,
+    apps: blogger.apps,
     createdAt: blogger.createdAt
   });
 });
@@ -43,12 +44,30 @@ router.get('/stats', async (req: Request, res: Response): Promise<void> => {
     prisma.promoUse.count({ where: { bloggerId: blogger.id, action: 'PURCHASED' } }),
   ]);
 
+  // Per-app totals
+  const appStatsRaw = await prisma.promoUse.groupBy({
+    by: ['app', 'action'],
+    where: { bloggerId: blogger.id },
+    _count: true
+  });
+
+  const appStats: Record<string, { entered: number; purchased: number; conversion: number }> = {};
+  for (const row of appStatsRaw) {
+    if (!appStats[row.app]) appStats[row.app] = { entered: 0, purchased: 0, conversion: 0 };
+    if (row.action === 'ENTERED') appStats[row.app].entered = row._count;
+    else appStats[row.app].purchased = row._count;
+  }
+  for (const app of Object.keys(appStats)) {
+    const s = appStats[app];
+    s.conversion = s.entered > 0 ? Math.round((s.purchased / s.entered) * 100) : 0;
+  }
+
   // Stats by day (last 30 days)
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   const dailyStats = await prisma.promoUse.groupBy({
-    by: ['action', 'createdAt'],
+    by: ['action', 'app', 'createdAt'],
     where: {
       bloggerId: blogger.id,
       createdAt: { gte: thirtyDaysAgo }
@@ -73,6 +92,7 @@ router.get('/stats', async (req: Request, res: Response): Promise<void> => {
     totalEntered: entered,
     totalPurchased: purchased,
     conversion: entered > 0 ? Math.round((purchased / entered) * 100) : 0,
+    appStats,
     daily
   });
 });

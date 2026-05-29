@@ -7,12 +7,18 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum AppType {
+  BALA_STORIES
+  ISLAMIC_TALES
+}
+
 model Blogger {
   id           String     @id @default(uuid())
   login        String     @unique
   passwordHash String
   name         String
   promoCode    String     @unique
+  apps         AppType[]
   createdAt    DateTime   @default(now())
   promoUses    PromoUse[]
 }
@@ -27,6 +33,7 @@ model PromoUse {
   blogger         Blogger     @relation(fields: [bloggerId], references: [id], onDelete: Cascade)
   bloggerId       String
   action          PromoAction
+  app             AppType
   externalUserId  String?
   createdAt       DateTime    @default(now())
 }

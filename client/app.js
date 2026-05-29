@@ -112,6 +112,7 @@ async function loadAdminData() {
     document.getElementById('stat-purchased').textContent = stats.totalPurchased;
     document.getElementById('stat-conversion').textContent = stats.conversion + '%';
 
+    renderAppStats(stats.appStats || {}, 'app-stats-section');
     renderBloggers(bloggers);
     renderPremiumPromos(promos);
   } catch (err) {
@@ -119,20 +120,60 @@ async function loadAdminData() {
   }
 }
 
+const APP_LABELS = {
+  BALA_STORIES: 'Bala Stories',
+  ISLAMIC_TALES: 'Исламские сказки'
+};
+
+function renderAppStats(appStats, containerId) {
+  const container = document.getElementById(containerId);
+  const apps = Object.keys(appStats);
+  if (!apps.length) {
+    container.innerHTML = '';
+    return;
+  }
+  container.innerHTML = apps.map(app => {
+    const s = appStats[app];
+    return `
+      <h3 class="section-title">${esc(APP_LABELS[app] || app)}</h3>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-value">${s.entered}</span>
+          <span class="stat-label">Вводов</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value">${s.purchased}</span>
+          <span class="stat-label">Покупок</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value">${s.conversion}%</span>
+          <span class="stat-label">Конверсия</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
 function renderBloggers(bloggers) {
   const tbody = document.getElementById('bloggers-table-body');
-  tbody.innerHTML = bloggers.map(b => `
+  tbody.innerHTML = bloggers.map(b => {
+    const apps = (b.apps || []).map(a => APP_LABELS[a] || a);
+    const appStatsHtml = Object.entries(b.appStats || {}).map(([app, s]) =>
+      `<span class="app-stat-line">${esc(APP_LABELS[app] || app)}: ${s.entered}/${s.purchased}</span>`
+    ).join('');
+    return `
     <tr>
       <td>${esc(b.name)}</td>
       <td>${esc(b.login)}</td>
       <td><code>${esc(b.promoCode)}</code></td>
-      <td>${b.entered}</td>
+      <td>${apps.map(a => `<span class="badge badge-app">${esc(a)}</span>`).join(' ')}</td>
+      <td>${b.entered}${appStatsHtml ? '<div class="app-stats-detail">' + appStatsHtml + '</div>' : ''}</td>
       <td>${b.purchased}</td>
       <td>${b.conversion}%</td>
       <td>${new Date(b.createdAt).toLocaleDateString('ru')}</td>
       <td><button class="btn btn-danger" onclick="deleteBlogger('${b.id}')">Удалить</button></td>
     </tr>
-  `).join('');
+  `}).join('');
 }
 
 function renderPremiumPromos(promos) {
@@ -184,10 +225,19 @@ document.getElementById('create-blogger-form').addEventListener('submit', async 
   const password = document.getElementById('cb-password').value;
   const promoCode = document.getElementById('cb-promo').value;
 
+  const apps = [];
+  if (document.getElementById('cb-app-bala').checked) apps.push('BALA_STORIES');
+  if (document.getElementById('cb-app-islamic').checked) apps.push('ISLAMIC_TALES');
+
+  if (apps.length === 0) {
+    errorEl.textContent = 'Выберите хотя бы одно приложение';
+    return;
+  }
+
   try {
     await api('/admin/bloggers', {
       method: 'POST',
-      body: JSON.stringify({ name, login, password, promoCode })
+      body: JSON.stringify({ name, login, password, promoCode, apps })
     });
 
     document.getElementById('cb-cred-login').textContent = login;
@@ -243,6 +293,7 @@ async function loadBloggerData() {
     document.getElementById('blogger-purchased').textContent = stats.totalPurchased;
     document.getElementById('blogger-conversion').textContent = stats.conversion + '%';
 
+    renderAppStats(stats.appStats || {}, 'blogger-app-stats-section');
     renderChart(stats.daily || []);
   } catch (err) {
     console.error('Failed to load blogger data:', err);

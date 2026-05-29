@@ -476,3 +476,51 @@ input:focus {
   background: rgba(34, 197, 94, 0.15);
   color: var(--success);
 }
+
+.badge-app {
+  background: rgba(139, 92, 246, 0.15);
+  color: var(--accent);
+  display: inline-block;
+  margin: 2px 0;
+}
+
+.checkbox-group {
+  display: flex;
+  gap: 16px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+}
+
+.section-title {
+  font-size: 16px;
+  color: var(--text-muted);
+  margin: 24px 0 12px;
+  padding-left: 4px;
+}
+
+.section-title:first-child {
+  margin-top: 0;
+}
+
+.app-stats-detail {
+  margin-top: 4px;
+}
+
+.app-stat-line {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+}

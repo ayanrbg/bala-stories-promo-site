@@ -9,10 +9,16 @@ router.use(requireApiKey);
 
 // Check/apply promo code (unified endpoint)
 router.post('/check', async (req: Request, res: Response): Promise<void> => {
-  const { code, externalUserId } = req.body;
+  const { code, externalUserId, app } = req.body;
 
   if (!code) {
     res.status(400).json({ error: 'Код обязателен' });
+    return;
+  }
+
+  const validApps = ['BALA_STORIES', 'ISLAMIC_TALES'];
+  if (!app || !validApps.includes(app)) {
+    res.status(400).json({ error: 'Поле app обязательно: BALA_STORIES или ISLAMIC_TALES' });
     return;
   }
 
@@ -26,6 +32,7 @@ router.post('/check', async (req: Request, res: Response): Promise<void> => {
       data: {
         bloggerId: blogger.id,
         action: 'ENTERED',
+        app,
         externalUserId: externalUserId || null
       }
     });
@@ -69,10 +76,16 @@ router.post('/check', async (req: Request, res: Response): Promise<void> => {
 
 // Record purchase for blogger promo code
 router.post('/purchase', async (req: Request, res: Response): Promise<void> => {
-  const { code, externalUserId } = req.body;
+  const { code, externalUserId, app } = req.body;
 
   if (!code) {
     res.status(400).json({ error: 'Код обязателен' });
+    return;
+  }
+
+  const validApps = ['BALA_STORIES', 'ISLAMIC_TALES'];
+  if (!app || !validApps.includes(app)) {
+    res.status(400).json({ error: 'Поле app обязательно: BALA_STORIES или ISLAMIC_TALES' });
     return;
   }
 
@@ -89,6 +102,7 @@ router.post('/purchase', async (req: Request, res: Response): Promise<void> => {
     data: {
       bloggerId: blogger.id,
       action: 'PURCHASED',
+      app,
       externalUserId: externalUserId || null
     }
   });
