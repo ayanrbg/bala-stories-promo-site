@@ -531,7 +531,7 @@ input:focus {
 .tale-modal-body hr { border: none; border-top: 1px solid rgba(255,255,255,0.12); margin: 16px 0; }
 .form-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
 .titles-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.ta { width: 100%; font-family: inherit; font-size: 14px; padding: 8px; border-radius: 8px; box-sizing: border-box; }
+.ta { width: 100%; font-family: inherit; font-size: 14px; padding: 8px; border-radius: 8px; box-sizing: border-box; background: var(--bg-input); color: var(--text); border: 1px solid var(--border); }
 .hint { color: var(--text-muted); font-size: 12px; margin: 4px 0; }
 .check-issues { color: #e74c3c; margin: 6px 0; padding-left: 18px; }
 .check-warn { color: #e0a800; margin: 6px 0; padding-left: 18px; }
@@ -549,3 +549,7 @@ input:focus {
 .alert-body { flex: 1; }
 .alert-msg { font-weight: 500; }
 .alert-meta { color: var(--text-muted); font-size: 12px; margin-top: 2px; }
+
+.tale-modal-body select { background: var(--bg-input); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; }
+.tale-modal-body input[type="file"] { color: var(--text-muted); font-size: 13px; }
+.tale-modal-body h4 { margin: 4px 0 8px; }
