@@ -176,17 +176,28 @@ function renderBloggers(bloggers) {
   `}).join('');
 }
 
-function renderPremiumPromos(promos) {
+async function renderPremiumPromos(promos) {
   const tbody = document.getElementById('premium-table-body');
-  tbody.innerHTML = promos.map(p => `
-    <tr>
-      <td><code>${esc(p.code)}</code></td>
-      <td>${p.durationDays} дней</td>
-      <td><span class="badge ${p.used ? 'badge-used' : 'badge-available'}">${p.used ? 'Использован' : 'Доступен'}</span></td>
-      <td>${p.usedBy ? esc(p.usedBy) : '—'}</td>
-      <td>${new Date(p.createdAt).toLocaleDateString('ru')}</td>
-    </tr>
-  `).join('');
+  const ids = Array.from(new Set(promos.filter(function (p) { return p.usedBy; }).map(function (p) { return p.usedBy; })));
+  let names = {};
+  if (ids.length) {
+    try { names = await api('/users/names', { method: 'POST', body: JSON.stringify({ userIds: ids }) }); } catch (e) { names = {}; }
+  }
+  tbody.innerHTML = promos.map(function (p) {
+    let usedBy = '—';
+    if (p.usedBy) {
+      const info = names[p.usedBy];
+      const nm = info && info.name ? info.name : null;
+      usedBy = (nm ? '<b>' + esc(nm) + '</b><br>' : '') + '<span class="muted-id">' + esc(p.usedBy) + '</span>';
+    }
+    return '<tr>' +
+      '<td><code>' + esc(p.code) + '</code></td>' +
+      '<td>' + p.durationDays + ' дней</td>' +
+      '<td><span class="badge ' + (p.used ? 'badge-used' : 'badge-available') + '">' + (p.used ? 'Использован' : 'Доступен') + '</span></td>' +
+      '<td>' + usedBy + '</td>' +
+      '<td>' + new Date(p.createdAt).toLocaleDateString('ru') + '</td>' +
+      '</tr>';
+  }).join('');
 }
 
 async function deleteBlogger(id) {

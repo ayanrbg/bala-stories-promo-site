@@ -7,6 +7,7 @@ import bloggerRoutes from './routes/blogger';
 import promoRoutes from './routes/promo';
 import catalogRoutes from './routes/catalog';
 import alertsRoutes from './routes/alerts';
+import usersRoutes from './routes/users';
 
 const app = express();
 
@@ -23,6 +24,7 @@ app.use('/api/blogger', bloggerRoutes);
 app.use('/api/promo', promoRoutes);
 app.use('/api/catalog', catalogRoutes);
 app.use('/api/alerts', alertsRoutes);
+app.use('/api/users', usersRoutes);
 
 // SPA fallback
 app.get('*', (_req, res) => {

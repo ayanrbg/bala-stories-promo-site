@@ -569,3 +569,6 @@ input:focus {
 
 /* --- Example illustration image --- */
 .example-img { display: block; max-width: 100%; border-radius: 8px; margin: 6px 0 10px; border: 1px solid var(--border); cursor: pointer; }
+
+/* --- userId under child name in promo table --- */
+.muted-id { color: var(--text-muted); font-size: 12px; }
