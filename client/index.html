@@ -125,7 +125,7 @@
       </div>
       <table class="data-table">
         <thead><tr>
-          <th>ID</th><th>Название</th><th>Статус</th><th>Скоро</th><th>Порядок</th><th>Языки</th><th>Контент</th><th></th>
+          <th>ID</th><th>Название</th><th>Статус</th><th>Скоро</th><th>Создана</th><th>Языки</th><th>Контент</th><th></th>
         </tr></thead>
         <tbody id="catalog-table-body"></tbody>
       </table>
@@ -256,7 +256,6 @@
           <input type="text" id="tale-id" placeholder="golden_egg">
         </div>
         <div class="form-row">
-          <div class="form-group"><label>Порядок</label><input type="number" id="tale-sort" value="0" class="input-sm" style="width:80px"></div>
           <div class="form-group"><label>Статус</label>
             <select id="tale-status"><option value="active">active</option><option value="hidden">hidden</option><option value="removed">removed</option></select>
           </div>
@@ -274,14 +273,14 @@
         <button id="tale-save-btn" class="btn btn-primary">Сохранить основное</button>
         <p id="tale-msg" class="error-text"></p>
         <hr>
-        <h4>Текст (страницы)</h4>
+        <h4>Сценарий (текст сказки) — файлом на каждый язык</h4>
+        <p class="hint">JSON в формате сервера <code>{ id, title, lang, pages: [...] }</code>, по одному файлу на язык. <a href="/example-tale.json" download>Скачать пример</a></p>
         <div class="inline-form">
-          <select id="tale-pages-lang"><option>ru</option><option>kz</option><option>uz</option><option>en</option></select>
-          <button id="tale-pages-load" class="btn btn-sm">Загрузить</button>
-          <button id="tale-pages-save" class="btn btn-primary btn-sm">Сохранить текст</button>
+          <select id="tale-scenario-lang"><option>ru</option><option>kz</option><option>uz</option><option>en</option></select>
+          <input type="file" id="tale-scenario-file" accept=".json,application/json">
+          <button id="tale-scenario-upload" class="btn btn-sm">Загрузить сценарий</button>
         </div>
-        <p class="hint">Разделяйте страницы строкой <code>---</code> на отдельной строке.</p>
-        <textarea id="tale-pages" rows="8" class="ta"></textarea>
+        <div id="tale-scenario-status" class="hint"></div>
         <hr>
         <h4>Обложка</h4>
         <div class="inline-form">

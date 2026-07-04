@@ -343,7 +343,7 @@ initApp();
 // ============ Catalog (tales) — library management (added) ============
 const CATALOG_LANGS = ['ru', 'kz', 'uz', 'en'];
 let catalogById = {};
-let talePagesByLang = {};
+let taleDetailPages = {};
 
 async function catalogUpload(path, file) {
   const fd = new FormData();
@@ -366,6 +366,8 @@ async function loadCatalog() {
   } catch (e) { console.error('catalog load failed', e); }
 }
 
+function fmtDate(s) { return s ? new Date(s).toLocaleDateString('ru') : '—'; }
+
 function renderCatalog(tales) {
   const tbody = document.getElementById('catalog-table-body');
   if (!tbody) return;
@@ -377,7 +379,7 @@ function renderCatalog(tales) {
       '<td>' + esc(title) + '</td>' +
       '<td><span class="badge badge-' + esc(t.status) + '">' + esc(t.status) + '</span></td>' +
       '<td>' + (t.comingSoon ? '🕓' : '—') + '</td>' +
-      '<td>' + (t.sortOrder != null ? t.sortOrder : 0) + '</td>' +
+      '<td>' + fmtDate(t.createdAt) + '</td>' +
       '<td>' + esc(langs) + '</td>' +
       '<td><button class="btn btn-sm" onclick="checkTaleRow(\'' + esc(t.id) + '\', this)">проверить</button></td>' +
       '<td><button class="btn btn-sm" onclick="openTale(\'' + esc(t.id) + '\')">Ред.</button> ' +
@@ -393,10 +395,16 @@ function setTaleMsg(msg, ok) {
 }
 function taleModal() { return document.getElementById('tale-modal-overlay'); }
 
+function renderScenarioStatus() {
+  const el = document.getElementById('tale-scenario-status');
+  if (!el) return;
+  const langs = Object.keys(taleDetailPages || {});
+  if (!langs.length) { el.textContent = 'Сценарий ещё не загружен.'; return; }
+  el.textContent = 'Загружено: ' + langs.map(function (l) { return l + ' (' + (taleDetailPages[l] || []).length + ' стр.)'; }).join(', ');
+}
+
 function clearTaleForm() {
   document.getElementById('tale-id').value = '';
-  document.getElementById('tale-sort').value = '0';
-  document.getElementById('tale-pages').value = '';
   CATALOG_LANGS.forEach(function (l) { document.getElementById('tale-title-' + l).value = ''; });
   document.getElementById('tale-status').value = 'active';
   document.getElementById('tale-free').checked = false;
@@ -404,14 +412,10 @@ function clearTaleForm() {
   document.getElementById('tale-cover-preview').innerHTML = '';
   document.getElementById('tale-ill-preview').innerHTML = '';
   document.getElementById('tale-check-result').innerHTML = '';
+  const sf = document.getElementById('tale-scenario-file'); if (sf) sf.value = '';
   setTaleMsg('');
-  talePagesByLang = {};
-}
-
-function loadPagesIntoTextarea() {
-  const lang = document.getElementById('tale-pages-lang').value;
-  const pages = (talePagesByLang && talePagesByLang[lang]) || [];
-  document.getElementById('tale-pages').value = pages.join('\n---\n');
+  taleDetailPages = {};
+  renderScenarioStatus();
 }
 
 async function openTale(id) {
@@ -422,13 +426,12 @@ async function openTale(id) {
     document.getElementById('tale-id').readOnly = true;
     try {
       const d = await api('/catalog/' + encodeURIComponent(id));
-      document.getElementById('tale-sort').value = d.sortOrder || 0;
       document.getElementById('tale-status').value = d.status || 'active';
       document.getElementById('tale-free').checked = !!d.free;
       document.getElementById('tale-coming').checked = !!d.comingSoon;
       CATALOG_LANGS.forEach(function (l) { document.getElementById('tale-title-' + l).value = (d.titles && d.titles[l]) || ''; });
-      talePagesByLang = d.pagesByLang || {};
-      loadPagesIntoTextarea();
+      taleDetailPages = d.pagesByLang || {};
+      renderScenarioStatus();
       if (d.cover) document.getElementById('tale-cover-preview').innerHTML = '<span class="hint">Обложка загружена ✓</span>';
       document.getElementById('tale-ill-preview').innerHTML = '<span class="hint">Иллюстрированных страниц: ' + (d.illustrations || []).length + '</span>';
     } catch (e) { setTaleMsg(e.message); }
@@ -446,15 +449,14 @@ async function saveTaleBasic() {
   CATALOG_LANGS.forEach(function (l) { const v = document.getElementById('tale-title-' + l).value.trim(); if (v) titles[l] = v; });
   const free = document.getElementById('tale-free').checked;
   const comingSoon = document.getElementById('tale-coming').checked;
-  const sortOrder = parseInt(document.getElementById('tale-sort').value, 10) || 0;
   const status = document.getElementById('tale-status').value;
   const isEdit = document.getElementById('tale-id').readOnly;
   try {
     if (isEdit) {
-      await api('/catalog/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify({ titles: titles, free: free, comingSoon: comingSoon, sortOrder: sortOrder, status: status }) });
+      await api('/catalog/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify({ titles: titles, free: free, comingSoon: comingSoon, status: status }) });
     } else {
       if (Object.keys(titles).length === 0) { setTaleMsg('Добавьте хотя бы одно название'); return; }
-      await api('/catalog', { method: 'POST', body: JSON.stringify({ id: id, titles: titles, free: free, comingSoon: comingSoon, sortOrder: sortOrder }) });
+      await api('/catalog', { method: 'POST', body: JSON.stringify({ id: id, titles: titles, free: free, comingSoon: comingSoon }) });
       document.getElementById('tale-id').readOnly = true;
       if (status !== 'active') await api('/catalog/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify({ status: status }) });
       document.getElementById('tale-modal-title').textContent = 'Сказка: ' + id;
@@ -464,16 +466,18 @@ async function saveTaleBasic() {
   } catch (e) { setTaleMsg(e.message); }
 }
 
-async function saveTalePages() {
+async function uploadScenario() {
   const id = document.getElementById('tale-id').value.trim();
-  const lang = document.getElementById('tale-pages-lang').value;
-  if (!id) { setTaleMsg('Сначала сохраните основное'); return; }
-  const raw = document.getElementById('tale-pages').value;
-  const pages = raw.split(/\n?---\n?/).map(function (s) { return s.trim(); }).filter(function (s) { return s.length; });
+  const lang = document.getElementById('tale-scenario-lang').value;
+  const f = document.getElementById('tale-scenario-file').files[0];
+  if (!id) { setTaleMsg('Сначала сохраните основное (ID)'); return; }
+  if (!f) { setTaleMsg('Выберите JSON-файл сценария'); return; }
   try {
-    await api('/catalog/' + encodeURIComponent(id) + '/pages?lang=' + encodeURIComponent(lang), { method: 'PUT', body: JSON.stringify({ pages: pages }) });
-    talePagesByLang[lang] = pages;
-    setTaleMsg('Текст сохранён: ' + pages.length + ' стр. (' + lang + ')', true);
+    const r = await catalogUpload('/catalog/' + encodeURIComponent(id) + '/scenario?lang=' + encodeURIComponent(lang), f);
+    taleDetailPages[r.lang || lang] = new Array(r.pages || 0);
+    renderScenarioStatus();
+    setTaleMsg('Сценарий загружен: ' + (r.pages || 0) + ' стр. (' + (r.lang || lang) + ')' + (r.warning ? ' — ' + r.warning : ''), true);
+    loadCatalog();
   } catch (e) { setTaleMsg(e.message); }
 }
 
@@ -548,8 +552,7 @@ async function removeTale(id) {
   if (q('tale-modal-close')) q('tale-modal-close').addEventListener('click', function () { taleModal().classList.remove('active'); });
   if (taleModal()) taleModal().addEventListener('click', function (e) { if (e.target === taleModal()) taleModal().classList.remove('active'); });
   if (q('tale-save-btn')) q('tale-save-btn').addEventListener('click', saveTaleBasic);
-  if (q('tale-pages-load')) q('tale-pages-load').addEventListener('click', loadPagesIntoTextarea);
-  if (q('tale-pages-save')) q('tale-pages-save').addEventListener('click', saveTalePages);
+  if (q('tale-scenario-upload')) q('tale-scenario-upload').addEventListener('click', uploadScenario);
   if (q('tale-cover-upload')) q('tale-cover-upload').addEventListener('click', uploadTaleCover);
   if (q('tale-ill-upload')) q('tale-ill-upload').addEventListener('click', uploadTaleIllustration);
   if (q('tale-check-btn')) q('tale-check-btn').addEventListener('click', runContentCheck);
