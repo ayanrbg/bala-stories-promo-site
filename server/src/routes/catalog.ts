@@ -26,6 +26,7 @@ router.post('/:id/reorder', (req, res) => fairyProxy(req, res, `${T}/${tid(req)}
 router.put('/:id/pages', (req, res) => fairyProxy(req, res, `${T}/${tid(req)}/pages`));
 
 // Content (multipart uploads streamed through)
+router.post('/:id/scenario', (req, res) => fairyProxy(req, res, `${T}/${tid(req)}/scenario`));
 router.post('/:id/cover', (req, res) => fairyProxy(req, res, `${T}/${tid(req)}/cover`));
 router.post('/:id/illustration/:page', (req, res) => fairyProxy(req, res, `${T}/${tid(req)}/illustration/${tpage(req)}`));
 router.delete('/:id/illustration/:page', (req, res) => fairyProxy(req, res, `${T}/${tid(req)}/illustration/${tpage(req)}`));
