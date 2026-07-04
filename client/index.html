@@ -285,19 +285,15 @@
         </div>
         <div id="tale-cover-preview" class="img-preview"></div>
         <hr>
-        <h4>Иллюстрации</h4>
-        <p class="hint">Имена файлов: <code>page_0</code>, <code>page_1</code>, … — нумерация страниц <b>с 0</b>. Гендерные страницы — <code>page_N_boy</code> и <code>page_N_girl</code> (нужны ОБА варианта). Формат JPG/PNG/WebP; сервер сам сожмёт до 2048px, как остальные сказки.</p>
-        <div class="inline-form">
-          <input type="number" id="tale-ill-page" placeholder="Стр." min="0" class="input-sm" style="width:70px">
-          <select id="tale-ill-gender"><option value="">plain</option><option value="boy">boy</option><option value="girl">girl</option></select>
-          <input type="file" id="tale-ill-file" accept="image/*">
-          <button id="tale-ill-upload" class="btn btn-sm">Загрузить одну</button>
-        </div>
+        <h4>Иллюстрации — только архивом (zip)</h4>
+        <p class="hint">Имена файлов: <code>page_0</code>, <code>page_1</code>, … — нумерация страниц <b>с 0</b>. Гендерные страницы — <code>page_N_boy</code> и <code>page_N_girl</code> (нужны ОБА варианта). Формат JPG/PNG/WebP; сервер сам сожмёт до 2048px.</p>
+        <p class="hint">Пример, как назвать файлы и как они выглядят: <a href="/example-illustrations.png" download>скачать пример</a></p>
+        <a href="/example-illustrations.png" download title="Скачать пример"><img src="/example-illustrations.png" class="example-img" alt="пример имён иллюстраций"></a>
         <div class="inline-form" style="margin-top:8px">
           <input type="file" id="tale-ill-zip" accept=".zip,application/zip">
           <button id="tale-ill-zip-upload" class="btn btn-sm">Загрузить архивом (zip)</button>
         </div>
-        <p class="hint">В zip — файлы с теми же именами (можно во вложенной папке). Недостающие можно дозагрузить по одной.</p>
+        <p class="hint">В zip — все страницы с этими именами (можно во вложенной папке).</p>
         <div id="tale-ill-missing" class="hint"></div>
         <div id="tale-ill-preview" class="img-preview"></div>
         <hr>
