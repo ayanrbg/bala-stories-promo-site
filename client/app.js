@@ -554,3 +554,67 @@ async function removeTale(id) {
   if (q('tale-ill-upload')) q('tale-ill-upload').addEventListener('click', uploadTaleIllustration);
   if (q('tale-check-btn')) q('tale-check-btn').addEventListener('click', runContentCheck);
 })();
+
+// ============ Activity feed (admin alerts, on-site) — added ============
+const ALERT_ICONS = { purchase: '💰', renewal: '🔁', refund: '⚠️', expire: '⌛', promo: '🎁', admin: '🛠️' };
+let alertsPollTimer = null;
+
+async function loadAlerts() {
+  try {
+    const data = await api('/alerts?limit=100');
+    renderAlerts(data.alerts || []);
+    updateAlertBadge(data.unread || 0);
+  } catch (e) { console.error('alerts load failed', e); }
+}
+
+function updateAlertBadge(n) {
+  const b = document.getElementById('activity-badge');
+  if (!b) return;
+  if (n > 0) { b.textContent = n; b.style.display = 'inline-block'; }
+  else { b.textContent = ''; b.style.display = 'none'; }
+}
+
+function renderAlerts(list) {
+  const el = document.getElementById('activity-feed');
+  if (!el) return;
+  if (!list.length) { el.innerHTML = '<p class="hint">Событий пока нет</p>'; return; }
+  el.innerHTML = list.map(function (a) {
+    const unread = !a.read_at;
+    const icon = ALERT_ICONS[a.kind] || '•';
+    const when = new Date(a.created_at).toLocaleString('ru');
+    const user = a.user_id ? '<code>' + esc(String(a.user_id).slice(0, 12)) + '</code>' : '';
+    return '<div class="alert-item' + (unread ? ' unread' : '') + '">' +
+      '<span class="alert-icon">' + icon + '</span>' +
+      '<div class="alert-body">' +
+      '<div class="alert-msg">' + esc(a.message || a.kind) + '</div>' +
+      '<div class="alert-meta">' + when + ' ' + user + '</div>' +
+      '</div></div>';
+  }).join('');
+}
+
+async function markAlertsRead() {
+  try { await api('/alerts/read', { method: 'POST', body: JSON.stringify({}) }); loadAlerts(); }
+  catch (e) { alert(e.message); }
+}
+
+function maybeLoadAlerts() {
+  if (accessToken && currentRole === 'admin') loadAlerts();
+}
+
+function startAlertsPolling() {
+  if (alertsPollTimer) return;
+  alertsPollTimer = setInterval(maybeLoadAlerts, 30000);
+}
+
+(function wireActivity() {
+  const q = function (id) { return document.getElementById(id); };
+  const navBtn = document.querySelector('[data-tab="activity"]');
+  if (navBtn) navBtn.addEventListener('click', loadAlerts);
+  if (q('activity-refresh-btn')) q('activity-refresh-btn').addEventListener('click', loadAlerts);
+  if (q('activity-read-btn')) q('activity-read-btn').addEventListener('click', markAlertsRead);
+  // Refresh the unread badge shortly after a login and then on an interval.
+  const loginForm = q('login-form');
+  if (loginForm) loginForm.addEventListener('submit', function () { setTimeout(maybeLoadAlerts, 1500); });
+  startAlertsPolling();
+  maybeLoadAlerts();
+})();

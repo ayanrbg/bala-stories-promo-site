@@ -38,6 +38,7 @@
         <button class="nav-btn" data-tab="bloggers">Блогеры</button>
         <button class="nav-btn" data-tab="premium">Премиум промокоды</button>
         <button class="nav-btn" data-tab="catalog">Сказки</button>
+        <button class="nav-btn" data-tab="activity">Активность <span id="activity-badge" class="nav-badge"></span></button>
       </nav>
       <button id="logout-btn" class="btn btn-outline">Выйти</button>
     </header>
@@ -128,6 +129,17 @@
         </tr></thead>
         <tbody id="catalog-table-body"></tbody>
       </table>
+    </div>
+    <!-- Activity Tab -->
+    <div id="tab-activity" class="tab-content">
+      <div class="tab-header">
+        <h2>Активность</h2>
+        <div class="inline-form">
+          <button id="activity-refresh-btn" class="btn btn-outline">Обновить</button>
+          <button id="activity-read-btn" class="btn btn-primary">Отметить всё прочитанным</button>
+        </div>
+      </div>
+      <div id="activity-feed"></div>
     </div>
   </div>
 
