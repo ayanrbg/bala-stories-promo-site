@@ -403,6 +403,45 @@ function renderScenarioStatus() {
   el.textContent = 'Загружено: ' + langs.map(function (l) { return l + ' (' + (taleDetailPages[l] || []).length + ' стр.)'; }).join(', ');
 }
 
+// Show which illustrations are missing, based on text page count vs uploaded art.
+function renderIllMissing(d) {
+  const el = document.getElementById('tale-ill-missing');
+  if (!el) return;
+  const textPages = Math.max(0, ...CATALOG_LANGS.map(function (l) {
+    return (d.pagesByLang && d.pagesByLang[l]) ? d.pagesByLang[l].length : 0;
+  }));
+  const map = {};
+  (d.illustrations || []).forEach(function (x) { map[x.page] = x; });
+  const illCount = (d.illustrations || []).length;
+  if (!textPages) {
+    el.style.color = '';
+    el.textContent = 'Загружено иллюстрированных страниц: ' + illCount + '. (Загрузите сценарий, чтобы увидеть, каких страниц не хватает.)';
+    return;
+  }
+  const missing = [];
+  for (let p = 0; p < textPages; p++) {
+    const v = map[p];
+    if (!v) missing.push('стр.' + p + ' (нет)');
+    else if ((v.boy || v.girl) && !(v.boy && v.girl)) missing.push('стр.' + p + ' (только ' + (v.boy ? 'boy' : 'girl') + ')');
+  }
+  if (missing.length) {
+    el.style.color = '';
+    el.innerHTML = '⚠️ Не хватает (' + missing.length + '): ' + missing.map(esc).join(', ');
+  } else {
+    el.style.color = '#2ecc71';
+    el.textContent = '✅ Все ' + textPages + ' страниц с иллюстрациями.';
+  }
+}
+
+async function refreshTaleAssets(id) {
+  try {
+    const d = await api('/catalog/' + encodeURIComponent(id));
+    taleDetailPages = d.pagesByLang || {};
+    renderScenarioStatus();
+    renderIllMissing(d);
+  } catch (e) { /* ignore */ }
+}
+
 function clearTaleForm() {
   document.getElementById('tale-id').value = '';
   CATALOG_LANGS.forEach(function (l) { document.getElementById('tale-title-' + l).value = ''; });
@@ -413,6 +452,8 @@ function clearTaleForm() {
   document.getElementById('tale-ill-preview').innerHTML = '';
   document.getElementById('tale-check-result').innerHTML = '';
   const sf = document.getElementById('tale-scenario-file'); if (sf) sf.value = '';
+  const zf = document.getElementById('tale-ill-zip'); if (zf) zf.value = '';
+  const mi = document.getElementById('tale-ill-missing'); if (mi) mi.textContent = '';
   setTaleMsg('');
   taleDetailPages = {};
   renderScenarioStatus();
@@ -432,8 +473,8 @@ async function openTale(id) {
       CATALOG_LANGS.forEach(function (l) { document.getElementById('tale-title-' + l).value = (d.titles && d.titles[l]) || ''; });
       taleDetailPages = d.pagesByLang || {};
       renderScenarioStatus();
+      renderIllMissing(d);
       if (d.cover) document.getElementById('tale-cover-preview').innerHTML = '<span class="hint">Обложка загружена ✓</span>';
-      document.getElementById('tale-ill-preview').innerHTML = '<span class="hint">Иллюстрированных страниц: ' + (d.illustrations || []).length + '</span>';
     } catch (e) { setTaleMsg(e.message); }
   } else {
     document.getElementById('tale-modal-title').textContent = 'Новая сказка';
@@ -474,9 +515,8 @@ async function uploadScenario() {
   if (!f) { setTaleMsg('Выберите JSON-файл сценария'); return; }
   try {
     const r = await catalogUpload('/catalog/' + encodeURIComponent(id) + '/scenario?lang=' + encodeURIComponent(lang), f);
-    taleDetailPages[r.lang || lang] = new Array(r.pages || 0);
-    renderScenarioStatus();
     setTaleMsg('Сценарий загружен: ' + (r.pages || 0) + ' стр. (' + (r.lang || lang) + ')' + (r.warning ? ' — ' + r.warning : ''), true);
+    await refreshTaleAssets(id);
     loadCatalog();
   } catch (e) { setTaleMsg(e.message); }
 }
@@ -506,6 +546,23 @@ async function uploadTaleIllustration() {
     const r = await catalogUpload('/catalog/' + encodeURIComponent(id) + '/illustration/' + encodeURIComponent(page) + query, f);
     document.getElementById('tale-ill-preview').innerHTML = '<img src="' + URL.createObjectURL(f) + '" class="thumb"><span class="hint">Стр. ' + r.page + ' ' + (gender || 'plain') + ' — ' + r.width + 'x' + r.height + '</span>';
     setTaleMsg('Иллюстрация загружена ✓', true);
+    await refreshTaleAssets(id);
+  } catch (e) { setTaleMsg(e.message); }
+}
+
+async function uploadIllustrationsZip() {
+  const id = document.getElementById('tale-id').value.trim();
+  const f = document.getElementById('tale-ill-zip').files[0];
+  if (!id) { setTaleMsg('Сначала сохраните основное (ID)'); return; }
+  if (!f) { setTaleMsg('Выберите zip-архив'); return; }
+  setTaleMsg('Загрузка архива, подождите…');
+  try {
+    const r = await catalogUpload('/catalog/' + encodeURIComponent(id) + '/illustrations-zip', f);
+    const up = (r.uploaded || []).length;
+    const sk = (r.skipped || []).length;
+    setTaleMsg('Архив: загружено ' + up + ' файлов' + (sk ? (', пропущено ' + sk + ' (' + (r.skipped || []).slice(0, 5).join(', ') + (sk > 5 ? '…' : '') + ')') : ''), true);
+    await refreshTaleAssets(id);
+    loadCatalog();
   } catch (e) { setTaleMsg(e.message); }
 }
 
@@ -555,6 +612,7 @@ async function removeTale(id) {
   if (q('tale-scenario-upload')) q('tale-scenario-upload').addEventListener('click', uploadScenario);
   if (q('tale-cover-upload')) q('tale-cover-upload').addEventListener('click', uploadTaleCover);
   if (q('tale-ill-upload')) q('tale-ill-upload').addEventListener('click', uploadTaleIllustration);
+  if (q('tale-ill-zip-upload')) q('tale-ill-zip-upload').addEventListener('click', uploadIllustrationsZip);
   if (q('tale-check-btn')) q('tale-check-btn').addEventListener('click', runContentCheck);
 })();
 

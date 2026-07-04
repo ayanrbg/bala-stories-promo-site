@@ -290,13 +290,19 @@
         <div id="tale-cover-preview" class="img-preview"></div>
         <hr>
         <h4>Иллюстрации</h4>
+        <p class="hint">Имена файлов: <code>page_0</code>, <code>page_1</code>, … — нумерация страниц <b>с 0</b>. Гендерные страницы — <code>page_N_boy</code> и <code>page_N_girl</code> (нужны ОБА варианта). Формат JPG/PNG/WebP; сервер сам сожмёт до 2048px, как остальные сказки.</p>
         <div class="inline-form">
           <input type="number" id="tale-ill-page" placeholder="Стр." min="0" class="input-sm" style="width:70px">
           <select id="tale-ill-gender"><option value="">plain</option><option value="boy">boy</option><option value="girl">girl</option></select>
           <input type="file" id="tale-ill-file" accept="image/*">
-          <button id="tale-ill-upload" class="btn btn-sm">Загрузить</button>
+          <button id="tale-ill-upload" class="btn btn-sm">Загрузить одну</button>
         </div>
-        <p class="hint">Для gendered-страниц загрузите ОБА варианта (boy и girl). Страница 0 обязательна.</p>
+        <div class="inline-form" style="margin-top:8px">
+          <input type="file" id="tale-ill-zip" accept=".zip,application/zip">
+          <button id="tale-ill-zip-upload" class="btn btn-sm">Загрузить архивом (zip)</button>
+        </div>
+        <p class="hint">В zip — файлы с теми же именами (можно во вложенной папке). Недостающие можно дозагрузить по одной.</p>
+        <div id="tale-ill-missing" class="hint"></div>
         <div id="tale-ill-preview" class="img-preview"></div>
         <hr>
         <div class="inline-form"><button id="tale-check-btn" class="btn btn-outline">Проверить контент</button></div>
