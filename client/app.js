@@ -385,7 +385,6 @@ function hideProgress() {
   bar.style.width = '0%';
   bar.classList.remove('indeterminate');
 }
-// Standard progress callback: fill to 100%, then switch to "processing".
 function uploadProgress(loaded, total) {
   const pct = total ? Math.round(loaded / total * 100) : 0;
   if (pct >= 100) showProgress(null, 'Обработка на сервере…');
@@ -430,12 +429,22 @@ function setTaleMsg(msg, ok) {
 }
 function taleModal() { return document.getElementById('tale-modal-overlay'); }
 
-function renderScenarioStatus() {
-  const el = document.getElementById('tale-scenario-status');
-  if (!el) return;
-  const langs = Object.keys(taleDetailPages || {});
-  if (!langs.length) { el.textContent = 'Сценарий ещё не загружен.'; return; }
-  el.textContent = 'Загружено: ' + langs.map(function (l) { return l + ' (' + (taleDetailPages[l] || []).length + ' стр.)'; }).join(', ');
+// One upload row per language; translations are optional.
+function renderScenarioRows() {
+  const wrap = document.getElementById('tale-scenario-rows');
+  if (!wrap) return;
+  wrap.innerHTML = CATALOG_LANGS.map(function (l) {
+    const n = (taleDetailPages && taleDetailPages[l]) ? taleDetailPages[l].length : 0;
+    const status = n > 0
+      ? '<span class="scenario-count ok">✓ ' + n + ' стр.</span>'
+      : '<span class="scenario-count">— не загружен</span>';
+    return '<div class="scenario-row">' +
+      '<span class="scenario-lang">' + l + '</span>' +
+      status +
+      '<input type="file" id="scen-file-' + l + '" accept=".json,application/json">' +
+      '<button class="btn btn-sm" onclick="uploadScenarioLang(\'' + l + '\')">Загрузить</button>' +
+      '</div>';
+  }).join('');
 }
 
 function renderIllMissing(d) {
@@ -471,7 +480,7 @@ async function refreshTaleAssets(id) {
   try {
     const d = await api('/catalog/' + encodeURIComponent(id));
     taleDetailPages = d.pagesByLang || {};
-    renderScenarioStatus();
+    renderScenarioRows();
     renderIllMissing(d);
   } catch (e) { /* ignore */ }
 }
@@ -485,13 +494,12 @@ function clearTaleForm() {
   document.getElementById('tale-cover-preview').innerHTML = '';
   document.getElementById('tale-ill-preview').innerHTML = '';
   document.getElementById('tale-check-result').innerHTML = '';
-  const sf = document.getElementById('tale-scenario-file'); if (sf) sf.value = '';
   const zf = document.getElementById('tale-ill-zip'); if (zf) zf.value = '';
   const mi = document.getElementById('tale-ill-missing'); if (mi) mi.textContent = '';
   hideProgress();
   setTaleMsg('');
   taleDetailPages = {};
-  renderScenarioStatus();
+  renderScenarioRows();
 }
 
 async function openTale(id) {
@@ -507,7 +515,7 @@ async function openTale(id) {
       document.getElementById('tale-coming').checked = !!d.comingSoon;
       CATALOG_LANGS.forEach(function (l) { document.getElementById('tale-title-' + l).value = (d.titles && d.titles[l]) || ''; });
       taleDetailPages = d.pagesByLang || {};
-      renderScenarioStatus();
+      renderScenarioRows();
       renderIllMissing(d);
       if (d.cover) document.getElementById('tale-cover-preview').innerHTML = '<span class="hint">Обложка загружена ✓</span>';
     } catch (e) { setTaleMsg(e.message); }
@@ -542,18 +550,20 @@ async function saveTaleBasic() {
   } catch (e) { setTaleMsg(e.message); }
 }
 
-async function uploadScenario() {
+async function uploadScenarioLang(lang) {
   const id = document.getElementById('tale-id').value.trim();
-  const lang = document.getElementById('tale-scenario-lang').value;
-  const f = document.getElementById('tale-scenario-file').files[0];
+  const input = document.getElementById('scen-file-' + lang);
+  const f = input ? input.files[0] : null;
   if (!id) { setTaleMsg('Сначала сохраните основное (ID)'); return; }
-  if (!f) { setTaleMsg('Выберите JSON-файл сценария'); return; }
+  if (!f) { setTaleMsg('Выберите файл сценария для ' + lang); return; }
   showProgress(0, 'Загрузка');
   try {
     const r = await catalogUpload('/catalog/' + encodeURIComponent(id) + '/scenario?lang=' + encodeURIComponent(lang), f, uploadProgress);
     hideProgress();
-    setTaleMsg('Сценарий загружен: ' + (r.pages || 0) + ' стр. (' + (r.lang || lang) + ')' + (r.warning ? ' — ' + r.warning : ''), true);
-    await refreshTaleAssets(id);
+    if (!taleDetailPages) taleDetailPages = {};
+    taleDetailPages[r.lang || lang] = new Array(r.pages || 0);
+    renderScenarioRows();
+    setTaleMsg('Сценарий ' + (r.lang || lang) + ': ' + (r.pages || 0) + ' стр.' + (r.warning ? ' — ' + r.warning : ''), true);
     loadCatalog();
   } catch (e) { hideProgress(); setTaleMsg(e.message); }
 }
@@ -652,7 +662,6 @@ async function removeTale(id) {
   if (q('tale-modal-close')) q('tale-modal-close').addEventListener('click', function () { taleModal().classList.remove('active'); });
   if (taleModal()) taleModal().addEventListener('click', function (e) { if (e.target === taleModal()) taleModal().classList.remove('active'); });
   if (q('tale-save-btn')) q('tale-save-btn').addEventListener('click', saveTaleBasic);
-  if (q('tale-scenario-upload')) q('tale-scenario-upload').addEventListener('click', uploadScenario);
   if (q('tale-cover-upload')) q('tale-cover-upload').addEventListener('click', uploadTaleCover);
   if (q('tale-ill-upload')) q('tale-ill-upload').addEventListener('click', uploadTaleIllustration);
   if (q('tale-ill-zip-upload')) q('tale-ill-zip-upload').addEventListener('click', uploadIllustrationsZip);

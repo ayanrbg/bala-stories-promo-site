@@ -273,14 +273,9 @@
         <button id="tale-save-btn" class="btn btn-primary">Сохранить основное</button>
         <p id="tale-msg" class="error-text"></p>
         <hr>
-        <h4>Сценарий (текст сказки) — файлом на каждый язык</h4>
-        <p class="hint">JSON в формате сервера <code>{ id, title, lang, pages: [...] }</code>, по одному файлу на язык. <a href="/example-tale.json" download>Скачать пример</a></p>
-        <div class="inline-form">
-          <select id="tale-scenario-lang"><option>ru</option><option>kz</option><option>uz</option><option>en</option></select>
-          <input type="file" id="tale-scenario-file" accept=".json,application/json">
-          <button id="tale-scenario-upload" class="btn btn-sm">Загрузить сценарий</button>
-        </div>
-        <div id="tale-scenario-status" class="hint"></div>
+        <h4>Сценарий (текст сказки) — файлом, отдельно на каждый язык</h4>
+        <p class="hint">JSON в формате сервера <code>{ id, title, lang, pages: [...] }</code>. Не обязательно загружать все языки — только те, что есть. <a href="/example-tale.json" download>Скачать пример</a></p>
+        <div id="tale-scenario-rows"></div>
         <hr>
         <h4>Обложка</h4>
         <div class="inline-form">
