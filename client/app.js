@@ -353,7 +353,7 @@ async function catalogUpload(path, file) {
   const res = await fetch(API + path, { method: 'POST', headers, body: fd });
   if (res.status === 401 || res.status === 403) { logout(); throw new Error('Unauthorized'); }
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || 'Ошибка загрузки');
+  if (!res.ok) throw new Error(data.error || ('Ошибка загрузки (HTTP ' + res.status + ')'));
   return data;
 }
 
