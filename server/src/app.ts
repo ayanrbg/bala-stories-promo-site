@@ -5,6 +5,7 @@ import authRoutes from './routes/auth';
 import adminRoutes from './routes/admin';
 import bloggerRoutes from './routes/blogger';
 import promoRoutes from './routes/promo';
+import catalogRoutes from './routes/catalog';
 
 const app = express();
 
@@ -19,6 +20,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/blogger', bloggerRoutes);
 app.use('/api/promo', promoRoutes);
+app.use('/api/catalog', catalogRoutes);
 
 // SPA fallback
 app.get('*', (_req, res) => {
