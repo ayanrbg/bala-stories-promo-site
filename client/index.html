@@ -37,6 +37,7 @@
         <button class="nav-btn active" data-tab="dashboard">Дашборд</button>
         <button class="nav-btn" data-tab="bloggers">Блогеры</button>
         <button class="nav-btn" data-tab="premium">Премиум промокоды</button>
+        <button class="nav-btn" data-tab="catalog">Сказки</button>
       </nav>
       <button id="logout-btn" class="btn btn-outline">Выйти</button>
     </header>
@@ -110,6 +111,22 @@
           </tr>
         </thead>
         <tbody id="premium-table-body"></tbody>
+      </table>
+    </div>
+    <!-- Catalog Tab -->
+    <div id="tab-catalog" class="tab-content">
+      <div class="tab-header">
+        <h2>Сказки</h2>
+        <div class="inline-form">
+          <button id="catalog-refresh-btn" class="btn btn-outline">Обновить</button>
+          <button id="add-tale-btn" class="btn btn-primary">+ Создать сказку</button>
+        </div>
+      </div>
+      <table class="data-table">
+        <thead><tr>
+          <th>ID</th><th>Название</th><th>Статус</th><th>Скоро</th><th>Порядок</th><th>Языки</th><th>Контент</th><th></th>
+        </tr></thead>
+        <tbody id="catalog-table-body"></tbody>
       </table>
     </div>
   </div>
@@ -211,6 +228,69 @@
         <button type="submit" class="btn btn-primary btn-full">Создать</button>
         <p id="cb-error" class="error-text"></p>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal: Tale editor -->
+  <div id="tale-modal-overlay" class="modal-overlay">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h3 id="tale-modal-title">Сказка</h3>
+        <button id="tale-modal-close" class="btn btn-icon">✕</button>
+      </div>
+      <div class="tale-modal-body">
+        <div class="form-group">
+          <label>ID (slug: латиница/цифры/_/-)</label>
+          <input type="text" id="tale-id" placeholder="golden_egg">
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Порядок</label><input type="number" id="tale-sort" value="0" class="input-sm" style="width:80px"></div>
+          <div class="form-group"><label>Статус</label>
+            <select id="tale-status"><option value="active">active</option><option value="hidden">hidden</option><option value="removed">removed</option></select>
+          </div>
+          <div class="form-group"><label class="checkbox-label"><input type="checkbox" id="tale-free"> Бесплатная</label></div>
+          <div class="form-group"><label class="checkbox-label"><input type="checkbox" id="tale-coming"> Скоро</label></div>
+        </div>
+        <div class="form-group"><label>Названия по языкам</label>
+          <div class="titles-grid">
+            <input type="text" id="tale-title-ru" placeholder="ru — Название">
+            <input type="text" id="tale-title-kz" placeholder="kz — Атауы">
+            <input type="text" id="tale-title-uz" placeholder="uz — Nomi">
+            <input type="text" id="tale-title-en" placeholder="en — Title">
+          </div>
+        </div>
+        <button id="tale-save-btn" class="btn btn-primary">Сохранить основное</button>
+        <p id="tale-msg" class="error-text"></p>
+        <hr>
+        <h4>Текст (страницы)</h4>
+        <div class="inline-form">
+          <select id="tale-pages-lang"><option>ru</option><option>kz</option><option>uz</option><option>en</option></select>
+          <button id="tale-pages-load" class="btn btn-sm">Загрузить</button>
+          <button id="tale-pages-save" class="btn btn-primary btn-sm">Сохранить текст</button>
+        </div>
+        <p class="hint">Разделяйте страницы строкой <code>---</code> на отдельной строке.</p>
+        <textarea id="tale-pages" rows="8" class="ta"></textarea>
+        <hr>
+        <h4>Обложка</h4>
+        <div class="inline-form">
+          <input type="file" id="tale-cover-file" accept="image/*">
+          <button id="tale-cover-upload" class="btn btn-sm">Загрузить обложку</button>
+        </div>
+        <div id="tale-cover-preview" class="img-preview"></div>
+        <hr>
+        <h4>Иллюстрации</h4>
+        <div class="inline-form">
+          <input type="number" id="tale-ill-page" placeholder="Стр." min="0" class="input-sm" style="width:70px">
+          <select id="tale-ill-gender"><option value="">plain</option><option value="boy">boy</option><option value="girl">girl</option></select>
+          <input type="file" id="tale-ill-file" accept="image/*">
+          <button id="tale-ill-upload" class="btn btn-sm">Загрузить</button>
+        </div>
+        <p class="hint">Для gendered-страниц загрузите ОБА варианта (boy и girl). Страница 0 обязательна.</p>
+        <div id="tale-ill-preview" class="img-preview"></div>
+        <hr>
+        <div class="inline-form"><button id="tale-check-btn" class="btn btn-outline">Проверить контент</button></div>
+        <div id="tale-check-result"></div>
+      </div>
     </div>
   </div>
 

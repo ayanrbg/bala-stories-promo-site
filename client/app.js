@@ -339,3 +339,218 @@ function esc(str) {
 
 // --- Start ---
 initApp();
+
+// ============ Catalog (tales) — library management (added) ============
+const CATALOG_LANGS = ['ru', 'kz', 'uz', 'en'];
+let catalogById = {};
+let talePagesByLang = {};
+
+async function catalogUpload(path, file) {
+  const fd = new FormData();
+  fd.append('file', file);
+  const headers = {};
+  if (accessToken) headers['Authorization'] = 'Bearer ' + accessToken;
+  const res = await fetch(API + path, { method: 'POST', headers, body: fd });
+  if (res.status === 401 || res.status === 403) { logout(); throw new Error('Unauthorized'); }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Ошибка загрузки');
+  return data;
+}
+
+async function loadCatalog() {
+  try {
+    const tales = await api('/catalog');
+    catalogById = {};
+    tales.forEach(function (t) { catalogById[t.id] = t; });
+    renderCatalog(tales);
+  } catch (e) { console.error('catalog load failed', e); }
+}
+
+function renderCatalog(tales) {
+  const tbody = document.getElementById('catalog-table-body');
+  if (!tbody) return;
+  tbody.innerHTML = tales.map(function (t) {
+    const title = (t.titles && (t.titles.ru || Object.values(t.titles)[0])) || t.id;
+    const langs = (t.langs || []).join(', ');
+    return '<tr>' +
+      '<td><code>' + esc(t.id) + '</code></td>' +
+      '<td>' + esc(title) + '</td>' +
+      '<td><span class="badge badge-' + esc(t.status) + '">' + esc(t.status) + '</span></td>' +
+      '<td>' + (t.comingSoon ? '🕓' : '—') + '</td>' +
+      '<td>' + (t.sortOrder != null ? t.sortOrder : 0) + '</td>' +
+      '<td>' + esc(langs) + '</td>' +
+      '<td><button class="btn btn-sm" onclick="checkTaleRow(\'' + esc(t.id) + '\', this)">проверить</button></td>' +
+      '<td><button class="btn btn-sm" onclick="openTale(\'' + esc(t.id) + '\')">Ред.</button> ' +
+      '<button class="btn btn-danger btn-sm" onclick="removeTale(\'' + esc(t.id) + '\')">Удалить</button></td>' +
+      '</tr>';
+  }).join('');
+}
+
+function setTaleMsg(msg, ok) {
+  const el = document.getElementById('tale-msg');
+  el.textContent = msg || '';
+  el.style.color = ok ? '#2ecc71' : '';
+}
+function taleModal() { return document.getElementById('tale-modal-overlay'); }
+
+function clearTaleForm() {
+  document.getElementById('tale-id').value = '';
+  document.getElementById('tale-sort').value = '0';
+  document.getElementById('tale-pages').value = '';
+  CATALOG_LANGS.forEach(function (l) { document.getElementById('tale-title-' + l).value = ''; });
+  document.getElementById('tale-status').value = 'active';
+  document.getElementById('tale-free').checked = false;
+  document.getElementById('tale-coming').checked = false;
+  document.getElementById('tale-cover-preview').innerHTML = '';
+  document.getElementById('tale-ill-preview').innerHTML = '';
+  document.getElementById('tale-check-result').innerHTML = '';
+  setTaleMsg('');
+  talePagesByLang = {};
+}
+
+function loadPagesIntoTextarea() {
+  const lang = document.getElementById('tale-pages-lang').value;
+  const pages = (talePagesByLang && talePagesByLang[lang]) || [];
+  document.getElementById('tale-pages').value = pages.join('\n---\n');
+}
+
+async function openTale(id) {
+  clearTaleForm();
+  if (id) {
+    document.getElementById('tale-modal-title').textContent = 'Сказка: ' + id;
+    document.getElementById('tale-id').value = id;
+    document.getElementById('tale-id').readOnly = true;
+    try {
+      const d = await api('/catalog/' + encodeURIComponent(id));
+      document.getElementById('tale-sort').value = d.sortOrder || 0;
+      document.getElementById('tale-status').value = d.status || 'active';
+      document.getElementById('tale-free').checked = !!d.free;
+      document.getElementById('tale-coming').checked = !!d.comingSoon;
+      CATALOG_LANGS.forEach(function (l) { document.getElementById('tale-title-' + l).value = (d.titles && d.titles[l]) || ''; });
+      talePagesByLang = d.pagesByLang || {};
+      loadPagesIntoTextarea();
+      if (d.cover) document.getElementById('tale-cover-preview').innerHTML = '<span class="hint">Обложка загружена ✓</span>';
+      document.getElementById('tale-ill-preview').innerHTML = '<span class="hint">Иллюстрированных страниц: ' + (d.illustrations || []).length + '</span>';
+    } catch (e) { setTaleMsg(e.message); }
+  } else {
+    document.getElementById('tale-modal-title').textContent = 'Новая сказка';
+    document.getElementById('tale-id').readOnly = false;
+  }
+  taleModal().classList.add('active');
+}
+
+async function saveTaleBasic() {
+  const id = document.getElementById('tale-id').value.trim();
+  if (!id) { setTaleMsg('Укажите ID'); return; }
+  const titles = {};
+  CATALOG_LANGS.forEach(function (l) { const v = document.getElementById('tale-title-' + l).value.trim(); if (v) titles[l] = v; });
+  const free = document.getElementById('tale-free').checked;
+  const comingSoon = document.getElementById('tale-coming').checked;
+  const sortOrder = parseInt(document.getElementById('tale-sort').value, 10) || 0;
+  const status = document.getElementById('tale-status').value;
+  const isEdit = document.getElementById('tale-id').readOnly;
+  try {
+    if (isEdit) {
+      await api('/catalog/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify({ titles: titles, free: free, comingSoon: comingSoon, sortOrder: sortOrder, status: status }) });
+    } else {
+      if (Object.keys(titles).length === 0) { setTaleMsg('Добавьте хотя бы одно название'); return; }
+      await api('/catalog', { method: 'POST', body: JSON.stringify({ id: id, titles: titles, free: free, comingSoon: comingSoon, sortOrder: sortOrder }) });
+      document.getElementById('tale-id').readOnly = true;
+      if (status !== 'active') await api('/catalog/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify({ status: status }) });
+      document.getElementById('tale-modal-title').textContent = 'Сказка: ' + id;
+    }
+    setTaleMsg('Сохранено ✓', true);
+    loadCatalog();
+  } catch (e) { setTaleMsg(e.message); }
+}
+
+async function saveTalePages() {
+  const id = document.getElementById('tale-id').value.trim();
+  const lang = document.getElementById('tale-pages-lang').value;
+  if (!id) { setTaleMsg('Сначала сохраните основное'); return; }
+  const raw = document.getElementById('tale-pages').value;
+  const pages = raw.split(/\n?---\n?/).map(function (s) { return s.trim(); }).filter(function (s) { return s.length; });
+  try {
+    await api('/catalog/' + encodeURIComponent(id) + '/pages?lang=' + encodeURIComponent(lang), { method: 'PUT', body: JSON.stringify({ pages: pages }) });
+    talePagesByLang[lang] = pages;
+    setTaleMsg('Текст сохранён: ' + pages.length + ' стр. (' + lang + ')', true);
+  } catch (e) { setTaleMsg(e.message); }
+}
+
+async function uploadTaleCover() {
+  const id = document.getElementById('tale-id').value.trim();
+  const f = document.getElementById('tale-cover-file').files[0];
+  if (!id) { setTaleMsg('Сначала сохраните основное (ID)'); return; }
+  if (!f) { setTaleMsg('Выберите файл обложки'); return; }
+  try {
+    const r = await catalogUpload('/catalog/' + encodeURIComponent(id) + '/cover', f);
+    document.getElementById('tale-cover-preview').innerHTML = '<img src="' + URL.createObjectURL(f) + '" class="thumb"><span class="hint">Загружено ' + r.width + 'x' + r.height + '</span>';
+    setTaleMsg('Обложка загружена ✓', true);
+  } catch (e) { setTaleMsg(e.message); }
+}
+
+async function uploadTaleIllustration() {
+  const id = document.getElementById('tale-id').value.trim();
+  const page = document.getElementById('tale-ill-page').value;
+  const gender = document.getElementById('tale-ill-gender').value;
+  const f = document.getElementById('tale-ill-file').files[0];
+  if (!id) { setTaleMsg('Сначала сохраните основное (ID)'); return; }
+  if (page === '') { setTaleMsg('Укажите номер страницы'); return; }
+  if (!f) { setTaleMsg('Выберите файл иллюстрации'); return; }
+  const query = gender ? ('?gender=' + gender) : '';
+  try {
+    const r = await catalogUpload('/catalog/' + encodeURIComponent(id) + '/illustration/' + encodeURIComponent(page) + query, f);
+    document.getElementById('tale-ill-preview').innerHTML = '<img src="' + URL.createObjectURL(f) + '" class="thumb"><span class="hint">Стр. ' + r.page + ' ' + (gender || 'plain') + ' — ' + r.width + 'x' + r.height + '</span>';
+    setTaleMsg('Иллюстрация загружена ✓', true);
+  } catch (e) { setTaleMsg(e.message); }
+}
+
+async function runContentCheck() {
+  const id = document.getElementById('tale-id').value.trim();
+  if (!id) { setTaleMsg('Укажите ID'); return; }
+  try { renderCheck(await api('/catalog/' + encodeURIComponent(id) + '/content-check')); }
+  catch (e) { setTaleMsg(e.message); }
+}
+
+function renderCheck(r) {
+  const el = document.getElementById('tale-check-result');
+  const badge = r.ok ? '<span class="badge badge-available">Контент OK</span>' : '<span class="badge badge-used">Есть проблемы</span>';
+  const issues = (r.issues || []).map(function (i) { return '<li>❌ ' + esc(i) + '</li>'; }).join('');
+  const warns = (r.warnings || []).map(function (i) { return '<li>⚠️ ' + esc(i) + '</li>'; }).join('');
+  el.innerHTML = badge +
+    (issues ? '<ul class="check-issues">' + issues + '</ul>' : '') +
+    (warns ? '<ul class="check-warn">' + warns + '</ul>' : '') +
+    '<p class="hint">Иллюстраций: ' + (r.illustratedPages || []).length + ', обложка: ' + (r.cover ? 'да' : 'нет') + ', размер: ' + ((r.downloadSize || 0) / 1048576).toFixed(1) + ' MB</p>';
+}
+
+async function checkTaleRow(id, btn) {
+  btn.textContent = '...';
+  try {
+    const r = await api('/catalog/' + encodeURIComponent(id) + '/content-check');
+    btn.textContent = r.ok ? '✓ ок' : ('✗ ' + (r.issues || []).length);
+    btn.title = (r.issues || []).join('; ');
+    btn.className = 'btn btn-sm ' + (r.ok ? 'btn-outline' : 'btn-danger');
+  } catch (e) { btn.textContent = 'ошибка'; }
+}
+
+async function removeTale(id) {
+  if (!confirm('Мягко удалить сказку "' + id + '"? Клиент подчистит локальный кэш.')) return;
+  try { await api('/catalog/' + encodeURIComponent(id), { method: 'DELETE' }); loadCatalog(); }
+  catch (e) { alert(e.message); }
+}
+
+(function wireCatalog() {
+  const q = function (id) { return document.getElementById(id); };
+  const navBtn = document.querySelector('[data-tab="catalog"]');
+  if (navBtn) navBtn.addEventListener('click', loadCatalog);
+  if (q('catalog-refresh-btn')) q('catalog-refresh-btn').addEventListener('click', loadCatalog);
+  if (q('add-tale-btn')) q('add-tale-btn').addEventListener('click', function () { openTale(null); });
+  if (q('tale-modal-close')) q('tale-modal-close').addEventListener('click', function () { taleModal().classList.remove('active'); });
+  if (taleModal()) taleModal().addEventListener('click', function (e) { if (e.target === taleModal()) taleModal().classList.remove('active'); });
+  if (q('tale-save-btn')) q('tale-save-btn').addEventListener('click', saveTaleBasic);
+  if (q('tale-pages-load')) q('tale-pages-load').addEventListener('click', loadPagesIntoTextarea);
+  if (q('tale-pages-save')) q('tale-pages-save').addEventListener('click', saveTalePages);
+  if (q('tale-cover-upload')) q('tale-cover-upload').addEventListener('click', uploadTaleCover);
+  if (q('tale-ill-upload')) q('tale-ill-upload').addEventListener('click', uploadTaleIllustration);
+  if (q('tale-check-btn')) q('tale-check-btn').addEventListener('click', runContentCheck);
+})();
