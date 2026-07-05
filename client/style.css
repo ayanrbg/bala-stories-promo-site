@@ -266,7 +266,14 @@ input:focus {
 .tab-content .data-table { margin-left: 0; margin-right: 0; max-width: 100%; }
 @media (max-width: 640px) {
   .tab-content { padding: 0 16px 24px; }
-  .header { padding: 16px; }
+  /* Header: logo + logout stay on top row, tabs become a swipeable strip below */
+  .header { padding: 12px 16px; flex-wrap: wrap; gap: 12px 16px; }
+  .nav { order: 3; flex-basis: 100%; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .nav-btn { flex: 0 0 auto; white-space: nowrap; }
+  .tab-header { flex-wrap: wrap; gap: 10px; }
+  /* Wide tables scroll horizontally inside their own box instead of the page
+     (single block table keeps columns aligned; nowrap forces the scroll) */
+  .data-table { display: block; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
 }
 
 .tab-header {
@@ -314,6 +321,7 @@ input:focus {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 /* Modal */
