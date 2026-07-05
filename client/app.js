@@ -679,68 +679,95 @@ async function removeTale(id) {
   if (q('tale-check-btn')) q('tale-check-btn').addEventListener('click', runContentCheck);
 })();
 
-// ============ Activity feed (admin alerts, on-site) — added ============
-const ALERT_ICONS = { purchase: '💰', renewal: '🔁', refund: '⚠️', expire: '⌛', promo: '🎁', admin: '🛠️' };
-let alertsPollTimer = null;
+// ============ Device logs (remote log mirror + kill-switch) — added ============
+// Reads the mirrored Unity log stream and drives the server-side kill-switch
+// through our BFF (/api/logs/* → Fairy /api/debug/logs + /api/admin/debug/log-config).
 
-async function loadAlerts() {
+async function loadLogsConfig() {
+  const statusEl = document.getElementById('logs-cfg-status');
   try {
-    const data = await api('/alerts?limit=100');
-    renderAlerts(data.alerts || []);
-    updateAlertBadge(data.unread || 0);
-  } catch (e) { console.error('alerts load failed', e); }
+    const rows = await api('/logs/config');
+    const global = (Array.isArray(rows) ? rows : []).find(function (r) { return r.user_id === '*'; });
+    const enabled = document.getElementById('logs-enabled');
+    const level = document.getElementById('logs-level');
+    if (global) {
+      if (enabled) enabled.checked = !!global.enabled;
+      if (level) level.value = global.level || 'all';
+      if (statusEl) statusEl.textContent = 'сейчас: ' + (global.enabled ? 'ВКЛ' : 'ВЫКЛ') + ', ' + (global.level || 'all');
+    } else {
+      if (enabled) enabled.checked = true;
+      if (level) level.value = 'all';
+      if (statusEl) statusEl.textContent = 'политика не задана (дефолт: ВКЛ, all)';
+    }
+  } catch (e) { if (statusEl) statusEl.textContent = 'не удалось загрузить: ' + e.message; }
 }
 
-function updateAlertBadge(n) {
-  const b = document.getElementById('activity-badge');
-  if (!b) return;
-  if (n > 0) { b.textContent = n; b.style.display = 'inline-block'; }
-  else { b.textContent = ''; b.style.display = 'none'; }
+async function saveLogsConfig() {
+  const statusEl = document.getElementById('logs-cfg-status');
+  const enabled = document.getElementById('logs-enabled').checked;
+  const level = document.getElementById('logs-level').value;
+  try {
+    await api('/logs/config', { method: 'PUT', body: JSON.stringify({ enabled: enabled, level: level }) });
+    if (statusEl) statusEl.textContent = 'сохранено: ' + (enabled ? 'ВКЛ' : 'ВЫКЛ') + ', ' + level;
+  } catch (e) { if (statusEl) statusEl.textContent = 'ошибка: ' + e.message; alert(e.message); }
 }
 
-function renderAlerts(list) {
-  const el = document.getElementById('activity-feed');
+// Map Unity log levels to a colour class.
+const LOG_LEVELS = { Error: 'err', Exception: 'err', Assert: 'err', Warning: 'warn', Log: 'log' };
+
+async function loadLogs() {
+  const listEl = document.getElementById('logs-list');
+  if (listEl) listEl.innerHTML = '<p class="hint">Загрузка…</p>';
+  const params = new URLSearchParams();
+  const u = document.getElementById('logs-user').value.trim();
+  const s = document.getElementById('logs-session').value.trim();
+  const lv = document.getElementById('logs-filter-level').value;
+  const lim = document.getElementById('logs-limit').value;
+  if (u) params.set('userId', u);
+  if (s) params.set('session', s);
+  if (lv) params.set('level', lv);
+  if (lim) params.set('limit', lim);
+  const qs = params.toString();
+  try {
+    const rows = await api('/logs' + (qs ? '?' + qs : ''));
+    renderLogs(Array.isArray(rows) ? rows : []);
+  } catch (e) {
+    if (listEl) listEl.innerHTML = '<p class="hint">Ошибка: ' + esc(e.message) + '</p>';
+  }
+}
+
+function renderLogs(list) {
+  const el = document.getElementById('logs-list');
   if (!el) return;
-  if (!list.length) { el.innerHTML = '<p class="hint">Событий пока нет</p>'; return; }
-  el.innerHTML = list.map(function (a) {
-    const unread = !a.read_at;
-    const icon = ALERT_ICONS[a.kind] || '•';
-    const when = new Date(a.created_at).toLocaleString('ru');
-    const user = a.user_id ? '<code>' + esc(String(a.user_id).slice(0, 12)) + '</code>' : '';
-    return '<div class="alert-item' + (unread ? ' unread' : '') + '">' +
-      '<span class="alert-icon">' + icon + '</span>' +
-      '<div class="alert-body">' +
-      '<div class="alert-msg">' + esc(a.message || a.kind) + '</div>' +
-      '<div class="alert-meta">' + when + ' ' + user + '</div>' +
+  if (!list.length) { el.innerHTML = '<p class="hint">Строк лога нет. Укажи userId или session и нажми «Показать».</p>'; return; }
+  el.innerHTML = list.map(function (r) {
+    const cls = LOG_LEVELS[r.level] || 'log';
+    const when = new Date(r.client_ts || r.received_at).toLocaleString('ru');
+    const sess = r.session ? '<code>' + esc(String(r.session)) + '</code>' : '';
+    const usr = r.user_id ? '<code>' + esc(String(r.user_id).slice(0, 12)) + '</code>' : '';
+    const stack = r.stack ? '<pre class="log-stack">' + esc(r.stack) + '</pre>' : '';
+    return '<div class="log-line log-' + cls + '">' +
+      '<span class="log-lvl log-lvl-' + cls + '">' + esc(r.level || '?') + '</span>' +
+      '<div class="log-body">' +
+      '<div class="log-msg">' + esc(r.message || '') + '</div>' +
+      stack +
+      '<div class="log-meta">' + when + ' ' + sess + ' ' + usr + '</div>' +
       '</div></div>';
   }).join('');
 }
 
-async function markAlertsRead() {
-  try { await api('/alerts/read', { method: 'POST', body: JSON.stringify({}) }); loadAlerts(); }
-  catch (e) { alert(e.message); }
-}
-
-function maybeLoadAlerts() {
-  if (accessToken && currentRole === 'admin') loadAlerts();
-}
-
-function startAlertsPolling() {
-  if (alertsPollTimer) return;
-  alertsPollTimer = setInterval(maybeLoadAlerts, 30000);
-}
-
-(function wireActivity() {
+(function wireLogs() {
   const q = function (id) { return document.getElementById(id); };
-  const navBtn = document.querySelector('[data-tab="activity"]');
-  if (navBtn) navBtn.addEventListener('click', loadAlerts);
-  if (q('activity-refresh-btn')) q('activity-refresh-btn').addEventListener('click', loadAlerts);
-  if (q('activity-read-btn')) q('activity-read-btn').addEventListener('click', markAlertsRead);
-  // Refresh the unread badge shortly after a login and then on an interval.
-  const loginForm = q('login-form');
-  if (loginForm) loginForm.addEventListener('submit', function () { setTimeout(maybeLoadAlerts, 1500); });
-  startAlertsPolling();
-  maybeLoadAlerts();
+  const navBtn = document.querySelector('[data-tab="logs"]');
+  if (navBtn) navBtn.addEventListener('click', function () { loadLogsConfig(); loadLogs(); });
+  if (q('logs-refresh-btn')) q('logs-refresh-btn').addEventListener('click', function () { loadLogsConfig(); loadLogs(); });
+  if (q('logs-apply-btn')) q('logs-apply-btn').addEventListener('click', loadLogs);
+  if (q('logs-save-cfg')) q('logs-save-cfg').addEventListener('click', saveLogsConfig);
+  // Enter in a filter field triggers a search.
+  ['logs-user', 'logs-session', 'logs-limit'].forEach(function (id) {
+    const inp = q(id);
+    if (inp) inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') loadLogs(); });
+  });
 })();
 
 // ============ Analytics (Firebase mirror via Fairy backend) — added ============

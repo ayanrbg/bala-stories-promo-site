@@ -39,7 +39,7 @@
         <button class="nav-btn" data-tab="premium">Премиум промокоды</button>
         <button class="nav-btn" data-tab="catalog">Сказки</button>
         <button class="nav-btn" data-tab="analytics">Аналитика</button>
-        <button class="nav-btn" data-tab="activity">Активность <span id="activity-badge" class="nav-badge"></span></button>
+        <button class="nav-btn" data-tab="logs">Логи</button>
       </nav>
       <button id="logout-btn" class="btn btn-outline">Выйти</button>
     </header>
@@ -214,16 +214,46 @@
       <div id="an-tales" class="tales-grid"></div>
     </div>
 
-    <!-- Activity Tab -->
-    <div id="tab-activity" class="tab-content">
+    <!-- Logs Tab -->
+    <div id="tab-logs" class="tab-content">
       <div class="tab-header">
-        <h2>Активность</h2>
+        <h2>Логи устройств</h2>
         <div class="inline-form">
-          <button id="activity-refresh-btn" class="btn btn-outline">Обновить</button>
-          <button id="activity-read-btn" class="btn btn-primary">Отметить всё прочитанным</button>
+          <button id="logs-refresh-btn" class="btn btn-outline">Обновить</button>
         </div>
       </div>
-      <div id="activity-feed"></div>
+
+      <!-- kill-switch: server-controlled logging policy -->
+      <div class="logs-switch">
+        <span class="hint">Глобальная политика логирования (применяется на всех устройствах при следующем старте / батче):</span>
+        <div class="logs-switch-row">
+          <label class="logs-toggle"><input type="checkbox" id="logs-enabled"> Логирование включено</label>
+          <select id="logs-level" class="input-sm">
+            <option value="all">уровень: all — все логи</option>
+            <option value="warn">уровень: warn — только Warning/Error/Exception</option>
+          </select>
+          <button id="logs-save-cfg" class="btn btn-primary">Применить</button>
+          <span id="logs-cfg-status" class="hint"></span>
+        </div>
+      </div>
+
+      <!-- filters -->
+      <div class="logs-filters">
+        <input type="text" id="logs-user" class="input-sm" placeholder="userId">
+        <input type="text" id="logs-session" class="input-sm" placeholder="session">
+        <select id="logs-filter-level" class="input-sm">
+          <option value="">любой уровень</option>
+          <option value="Log">Log</option>
+          <option value="Warning">Warning</option>
+          <option value="Error">Error</option>
+          <option value="Exception">Exception</option>
+          <option value="Assert">Assert</option>
+        </select>
+        <input type="number" id="logs-limit" class="input-sm logs-limit" value="500" min="1" max="5000">
+        <button id="logs-apply-btn" class="btn btn-outline">Показать</button>
+      </div>
+
+      <div id="logs-list"></div>
     </div>
   </div>
 

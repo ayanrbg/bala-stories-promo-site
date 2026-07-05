@@ -703,3 +703,25 @@ details[open] > .an-summary::before { content: '▾ '; }
 .an-tales-header .section-title { margin: 0; }
 #an-tale-search { min-width: 240px; }
 .tale-badge { position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,.6); color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 999px; }
+
+/* ===== Logs tab (remote log mirror + kill-switch) ===== */
+.logs-switch { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; }
+.logs-switch-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+.logs-toggle { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+.logs-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.logs-limit { width: 90px; }
+
+#logs-list { display: flex; flex-direction: column; gap: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+.log-line { display: flex; gap: 10px; align-items: flex-start; background: var(--bg-card); border: 1px solid var(--border); border-left-width: 3px; border-radius: 6px; padding: 6px 10px; }
+.log-line.log-err  { border-left-color: var(--danger); }
+.log-line.log-warn { border-left-color: #f59e0b; }
+.log-line.log-log  { border-left-color: var(--border); }
+.log-lvl { flex: 0 0 auto; font-size: 10.5px; font-weight: 700; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; letter-spacing: .03em; }
+.log-lvl-err  { background: rgba(239,68,68,.15);  color: #fca5a5; }
+.log-lvl-warn { background: rgba(245,158,11,.15); color: #fcd34d; }
+.log-lvl-log  { background: rgba(136,136,160,.15); color: var(--text-muted); }
+.log-body { min-width: 0; flex: 1; }
+.log-msg { color: var(--text); white-space: pre-wrap; word-break: break-word; }
+.log-stack { margin: 4px 0 0; padding: 6px 8px; background: var(--bg-input); border-radius: 6px; color: var(--text-muted); white-space: pre-wrap; word-break: break-word; font-size: 11.5px; max-height: 220px; overflow: auto; }
+.log-meta { color: var(--text-muted); font-size: 11px; margin-top: 3px; }
+.log-meta code { background: var(--bg-input); padding: 1px 5px; border-radius: 4px; }

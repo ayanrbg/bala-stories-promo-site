@@ -9,6 +9,7 @@ import catalogRoutes from './routes/catalog';
 import alertsRoutes from './routes/alerts';
 import usersRoutes from './routes/users';
 import analyticsRoutes from './routes/analytics';
+import logsRoutes from './routes/logs';
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.use('/api/catalog', catalogRoutes);
 app.use('/api/alerts', alertsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/logs', logsRoutes);
 
 // SPA fallback
 app.get('*', (_req, res) => {

@@ -10,6 +10,11 @@ const auth_1 = __importDefault(require("./routes/auth"));
 const admin_1 = __importDefault(require("./routes/admin"));
 const blogger_1 = __importDefault(require("./routes/blogger"));
 const promo_1 = __importDefault(require("./routes/promo"));
+const catalog_1 = __importDefault(require("./routes/catalog"));
+const alerts_1 = __importDefault(require("./routes/alerts"));
+const users_1 = __importDefault(require("./routes/users"));
+const analytics_1 = __importDefault(require("./routes/analytics"));
+const logs_1 = __importDefault(require("./routes/logs"));
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
@@ -20,6 +25,11 @@ app.use('/api/auth', auth_1.default);
 app.use('/api/admin', admin_1.default);
 app.use('/api/blogger', blogger_1.default);
 app.use('/api/promo', promo_1.default);
+app.use('/api/catalog', catalog_1.default);
+app.use('/api/alerts', alerts_1.default);
+app.use('/api/users', users_1.default);
+app.use('/api/analytics', analytics_1.default);
+app.use('/api/logs', logs_1.default);
 // SPA fallback
 app.get('*', (_req, res) => {
     res.sendFile(path_1.default.join(__dirname, '../../client/index.html'));
