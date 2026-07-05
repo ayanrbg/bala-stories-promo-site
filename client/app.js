@@ -742,3 +742,129 @@ function startAlertsPolling() {
   startAlertsPolling();
   maybeLoadAlerts();
 })();
+
+// ============ Analytics (Firebase mirror via Fairy backend) — added ============
+// Reads the read-only mirror through our own BFF (/api/analytics/* → Fairy).
+// Firebase GA4 stays the source of truth; this is the quick in-site view.
+const AN_EVENTS = {
+  paywall_view:     'Показан пейволл',
+  paywall_dismiss:  'Пейволл закрыт без покупки',
+  purchase_start:   'Нажата кнопка покупки',
+  purchase_success: 'Покупка подтверждена',
+  purchase_error:   'Ошибка/отмена покупки',
+  purchase_restore: 'Восстановление покупок',
+  promo_redeem:     'Активирован промокод',
+  tale_complete:    'Сказка дочитана до конца'
+};
+let anAutoTimer = null;
+
+function anSince() {
+  const h = parseInt(document.getElementById('an-range').value, 10) || 24;
+  return new Date(Date.now() - h * 3600 * 1000).toISOString();
+}
+function anFmt(t) { return t ? new Date(t).toLocaleString('ru') : '—'; }
+function anCount(list, name) { const r = list.find(function (e) { return e.name === name; }); return r ? r.count : 0; }
+
+async function loadAnalytics() {
+  const status = document.getElementById('an-status');
+  if (status) status.textContent = 'Загрузка…';
+  const since = encodeURIComponent(anSince());
+  try {
+    const nameF = document.getElementById('an-f-name').value.trim();
+    const sessF = document.getElementById('an-f-session').value.trim();
+    const userF = document.getElementById('an-f-user').value.trim();
+    const evQuery = '/analytics/events?limit=200&since=' + since +
+      (nameF ? '&name=' + encodeURIComponent(nameF) : '') +
+      (sessF ? '&session=' + encodeURIComponent(sessF) : '') +
+      (userF ? '&userId=' + encodeURIComponent(userF) : '');
+    const results = await Promise.all([
+      api('/analytics/summary?since=' + since),
+      api(evQuery)
+    ]);
+    const sum = results[0] || {};
+    const events = results[1] || [];
+    renderAnFunnel(sum.events || []);
+    renderAnSummary(sum.events || []);
+    renderAnEvents(events);
+    const total = (sum.events || []).reduce(function (a, e) { return a + e.count; }, 0);
+    if (status) status.textContent = 'Обновлено ' + new Date().toLocaleTimeString('ru') + ' · ' + total + ' событий за период';
+  } catch (e) {
+    if (status) status.textContent = 'Ошибка: ' + e.message;
+  }
+}
+
+function renderAnFunnel(list) {
+  const view = anCount(list, 'paywall_view');
+  const start = anCount(list, 'purchase_start');
+  const ok = anCount(list, 'purchase_success');
+  const err = anCount(list, 'purchase_error');
+  const pct = function (a, b) { return b > 0 ? Math.round(a / b * 100) + '%' : '—'; };
+  const cards = [
+    { v: view,  l: 'paywall_view — показы пейволла',  sub: '' },
+    { v: start, l: 'purchase_start — нажатия «купить»', sub: pct(start, view) + ' от показов' },
+    { v: ok,    l: 'purchase_success — покупки',        sub: pct(ok, start) + ' от нажатий' },
+    { v: err,   l: 'purchase_error — ошибки/отмены',    sub: '' }
+  ];
+  const el = document.getElementById('an-funnel');
+  if (!el) return;
+  el.innerHTML = cards.map(function (c) {
+    return '<div class="stat-card">' +
+      '<span class="stat-value">' + c.v + '</span>' +
+      '<span class="stat-label">' + esc(c.l) + '</span>' +
+      (c.sub ? '<span class="stat-label" style="color:var(--accent)">' + esc(c.sub) + '</span>' : '') +
+      '</div>';
+  }).join('');
+}
+
+function renderAnSummary(list) {
+  const tbody = document.getElementById('an-summary-body');
+  if (!tbody) return;
+  if (!list.length) { tbody.innerHTML = '<tr><td colspan="4" class="hint">Нет событий за период</td></tr>'; return; }
+  tbody.innerHTML = list.map(function (e) {
+    const known = AN_EVENTS[e.name];
+    return '<tr>' +
+      '<td>' + (known ? '' : '<span class="badge badge-used">?</span> ') + '<code>' + esc(e.name) + '</code></td>' +
+      '<td>' + esc(known || '—') + '</td>' +
+      '<td>' + e.count + '</td>' +
+      '<td class="muted-id">' + anFmt(e.last_seen) + '</td>' +
+      '</tr>';
+  }).join('');
+}
+
+function renderAnEvents(rows) {
+  const tbody = document.getElementById('an-events-body');
+  if (!tbody) return;
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="5" class="hint">Нет событий по фильтру за период</td></tr>'; return; }
+  tbody.innerHTML = rows.map(function (e) {
+    const known = AN_EVENTS[e.name];
+    const params = e.params ? esc(JSON.stringify(e.params)) : '—';
+    return '<tr>' +
+      '<td class="muted-id">' + anFmt(e.received_at) + '</td>' +
+      '<td>' + (known ? '' : '<span class="badge badge-used">?</span> ') + '<code>' + esc(e.name) + '</code></td>' +
+      '<td>' + esc(e.platform || '—') + ' <span class="muted-id">v' + esc(e.app_version || '?') + '</span></td>' +
+      '<td><span class="muted-id">' + esc(e.user_id || 'anon') + '</span><br><code>' + esc(e.session || '—') + '</code></td>' +
+      '<td class="an-params">' + params + '</td>' +
+      '</tr>';
+  }).join('');
+}
+
+function renderAnLegend() {
+  const tbody = document.getElementById('an-legend-body');
+  if (!tbody || tbody.children.length) return;
+  tbody.innerHTML = Object.keys(AN_EVENTS).map(function (n) {
+    return '<tr><td><code>' + esc(n) + '</code></td><td>' + esc(AN_EVENTS[n]) + '</td></tr>';
+  }).join('');
+}
+
+(function wireAnalytics() {
+  const q = function (id) { return document.getElementById(id); };
+  const navBtn = document.querySelector('[data-tab="analytics"]');
+  if (navBtn) navBtn.addEventListener('click', function () { renderAnLegend(); loadAnalytics(); });
+  if (q('an-refresh-btn')) q('an-refresh-btn').addEventListener('click', loadAnalytics);
+  if (q('an-apply-btn')) q('an-apply-btn').addEventListener('click', loadAnalytics);
+  if (q('an-range')) q('an-range').addEventListener('change', loadAnalytics);
+  if (q('an-auto')) q('an-auto').addEventListener('change', function (e) {
+    if (anAutoTimer) { clearInterval(anAutoTimer); anAutoTimer = null; }
+    if (e.target.checked) { anAutoTimer = setInterval(loadAnalytics, 10000); loadAnalytics(); }
+  });
+})();

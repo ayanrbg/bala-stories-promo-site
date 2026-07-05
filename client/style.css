@@ -572,3 +572,9 @@ input:focus {
 
 /* --- userId under child name in promo table --- */
 .muted-id { color: var(--text-muted); font-size: 12px; }
+
+/* --- Analytics tab (Firebase mirror) --- */
+.an-params { font-family: monospace; font-size: 12px; color: var(--text-muted); word-break: break-word; white-space: pre-wrap; display: inline-block; max-width: 420px; }
+.an-legend { margin-top: 24px; }
+.an-legend > summary { cursor: pointer; color: var(--text-muted); font-size: 14px; padding: 6px 0; }
+.tab-header .hint { font-weight: 400; font-size: 13px; }

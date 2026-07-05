@@ -38,6 +38,7 @@
         <button class="nav-btn" data-tab="bloggers">Блогеры</button>
         <button class="nav-btn" data-tab="premium">Премиум промокоды</button>
         <button class="nav-btn" data-tab="catalog">Сказки</button>
+        <button class="nav-btn" data-tab="analytics">Аналитика</button>
         <button class="nav-btn" data-tab="activity">Активность <span id="activity-badge" class="nav-badge"></span></button>
       </nav>
       <button id="logout-btn" class="btn btn-outline">Выйти</button>
@@ -130,6 +131,54 @@
         <tbody id="catalog-table-body"></tbody>
       </table>
     </div>
+    <!-- Analytics Tab (Firebase mirror via Fairy backend) -->
+    <div id="tab-analytics" class="tab-content">
+      <div class="tab-header">
+        <h2>Аналитика <span class="hint">зеркало Firebase-событий приложения</span></h2>
+        <div class="inline-form">
+          <select id="an-range" class="input-sm">
+            <option value="1">1 час</option>
+            <option value="24" selected>24 часа</option>
+            <option value="168">7 дней</option>
+            <option value="720">30 дней</option>
+          </select>
+          <label class="checkbox-label"><input type="checkbox" id="an-auto"> авто 10с</label>
+          <button id="an-refresh-btn" class="btn btn-outline">Обновить</button>
+        </div>
+      </div>
+      <p id="an-status" class="hint"></p>
+
+      <h3 class="section-title">Воронка монетизации</h3>
+      <div class="stats-grid" id="an-funnel"></div>
+
+      <h3 class="section-title">Счётчики по событиям</h3>
+      <table class="data-table">
+        <thead><tr><th>Событие</th><th>Смысл</th><th>Кол-во</th><th>Последнее</th></tr></thead>
+        <tbody id="an-summary-body"></tbody>
+      </table>
+
+      <h3 class="section-title">Живой поток событий <span class="hint">что реально прислал клиент</span></h3>
+      <div class="inline-form" style="margin-bottom:10px">
+        <input type="text" id="an-f-name" class="input-sm" placeholder="событие (name)">
+        <input type="text" id="an-f-session" class="input-sm" placeholder="session">
+        <input type="text" id="an-f-user" class="input-sm" placeholder="userId">
+        <button id="an-apply-btn" class="btn btn-outline">Фильтр</button>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Время</th><th>Событие</th><th>Платформа</th><th>User / session</th><th>Параметры</th></tr></thead>
+        <tbody id="an-events-body"></tbody>
+      </table>
+
+      <details class="an-legend">
+        <summary>Легенда: какие события шлёт клиент в зеркало (8 имён)</summary>
+        <p class="hint">Только эти события приходят в наш backend. Всё остальное (открытия сказок, страницы, озвучка…) — только в Firebase GA4. Незнакомое имя <span class="badge badge-used">?</span> = возможно опечатка в билде.</p>
+        <table class="data-table">
+          <thead><tr><th>Событие</th><th>Смысл</th></tr></thead>
+          <tbody id="an-legend-body"></tbody>
+        </table>
+      </details>
+    </div>
+
     <!-- Activity Tab -->
     <div id="tab-activity" class="tab-content">
       <div class="tab-header">
