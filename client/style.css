@@ -641,3 +641,26 @@ input:focus {
 .an-summary::-webkit-details-marker { display: none; }
 .an-summary::before { content: '▸ '; color: var(--text-muted); }
 details[open] > .an-summary::before { content: '▾ '; }
+
+/* Popular tale cards are clickable → per-tale modal */
+.tale-card { cursor: pointer; transition: transform .12s ease, border-color .12s ease; }
+.tale-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+
+/* Per-tale analytics modal */
+.an-tale-body { padding: 4px 2px; }
+.an-tale-head { display: flex; gap: 16px; align-items: stretch; margin-bottom: 12px; flex-wrap: wrap; }
+.an-tale-cover { flex: 0 0 160px; aspect-ratio: 3 / 2; border-radius: 10px; background: var(--bg-input) center/cover no-repeat; border: 1px solid var(--border); }
+.an-tale-kpis { flex: 1; min-width: 260px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.an-tale-kpis .kpi-card { padding: 12px; }
+.an-tale-kpis .kpi-val { font-size: 20px; }
+@media (max-width: 620px) { .an-tale-kpis { grid-template-columns: repeat(2, 1fr); } }
+.an-tale-body .an-panel-title { margin: 18px 0 6px; }
+
+/* Retention curve (per page) */
+.retention-chart { margin-top: 6px; }
+.ret-row { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
+.ret-page { flex: 0 0 60px; font-size: 12px; color: var(--text-muted); }
+.ret-track { flex: 1; background: var(--bg-input); border-radius: 5px; height: 18px; overflow: hidden; }
+.ret-fill { height: 100%; background: linear-gradient(90deg, #6d5efc, #a855f7); border-radius: 5px; transition: width .4s ease; }
+.ret-fill.ret-drop { background: linear-gradient(90deg, #f59e0b, #ef4444); }
+.ret-val { flex: 0 0 auto; font-size: 12px; min-width: 70px; text-align: right; color: var(--text); }

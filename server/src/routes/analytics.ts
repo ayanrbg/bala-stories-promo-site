@@ -12,5 +12,6 @@ router.use(authenticateToken, requireRole('admin'));
 router.get('/summary', (req, res) => fairyProxy(req, res, '/api/analytics/summary'));
 router.get('/events', (req, res) => fairyProxy(req, res, '/api/analytics/events'));
 router.get('/insights', (req, res) => fairyProxy(req, res, '/api/analytics/insights'));
+router.get('/tale/:id', (req, res) => fairyProxy(req, res, '/api/analytics/tale/' + encodeURIComponent(req.params.id)));
 
 export default router;

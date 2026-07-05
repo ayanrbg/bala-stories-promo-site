@@ -183,7 +183,11 @@
       </div>
 
       <!-- Popular tales -->
-      <h3 class="section-title">Популярные сказки <span class="hint">по числу дочитываний</span></h3>
+      <h3 class="section-title">Популярные сказки <span class="hint">по числу дочитываний · нажми на сказку для детальной аналитики</span></h3>
+      <div class="inline-form" style="margin:6px 0 14px">
+        <select id="an-tale-pick" class="input-sm"><option value="">— открыть аналитику любой сказки —</option></select>
+        <button id="an-tale-open" class="btn btn-outline">Открыть</button>
+      </div>
       <div id="an-tales" class="tales-grid"></div>
 
       <!-- Live feed (collapsible) -->
@@ -382,6 +386,38 @@
         <div id="tale-check-result"></div>
       </div>
       <div id="tale-upload-progress" class="upload-progress" style="display:none"><div class="bar"></div><span class="pct"></span></div>
+    </div>
+  </div>
+
+  <!-- Modal: per-tale analytics -->
+  <div id="an-tale-modal" class="modal-overlay">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h3 id="an-tale-mtitle">Аналитика сказки</h3>
+        <button id="an-tale-mclose" class="btn btn-icon">✕</button>
+      </div>
+      <div class="an-tale-body">
+        <div class="an-tale-head">
+          <div class="an-tale-cover" id="an-tale-cover"></div>
+          <div class="an-tale-kpis" id="an-tale-kpis"></div>
+        </div>
+        <p id="an-tale-status" class="hint"></p>
+
+        <h4 class="an-panel-title">Удержание по страницам</h4>
+        <p class="hint">Сколько читателей дошли до каждой страницы (относительно первой). Резкое падение = место, где сказку бросают.</p>
+        <div id="an-tale-retention" class="retention-chart"></div>
+
+        <div class="an-cols" style="margin-top:18px">
+          <div>
+            <h4 class="an-panel-title">Где выходят из сказки</h4>
+            <div id="an-tale-exits" class="bar-list"></div>
+          </div>
+          <div>
+            <h4 class="an-panel-title">Сколько времени на странице</h4>
+            <div id="an-tale-dwell" class="bar-list"></div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
