@@ -15,6 +15,7 @@ const tpage = (req: Request) => encodeURIComponent(String(req.params.page));
 // Read
 router.get('/', (req, res) => fairyProxy(req, res, T));
 router.get('/:id/content-check', (req, res) => fairyProxy(req, res, `${T}/${tid(req)}/content-check`));
+router.get('/:id/cover', (req, res) => fairyProxy(req, res, `${T}/${tid(req)}/cover`));
 router.get('/:id', (req, res) => fairyProxy(req, res, `${T}/${tid(req)}`));
 
 // Catalog metadata

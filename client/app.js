@@ -756,14 +756,37 @@ const AN_EVENTS = {
   promo_redeem:     'Активирован промокод',
   tale_complete:    'Сказка дочитана до конца'
 };
+// Where paywalls are triggered from (source param) — readable labels.
+const AN_SOURCE_LABELS = {
+  tale_locked: 'Из закрытой сказки',
+  library: 'Из библиотеки',
+  narrate: 'Из озвучки',
+  parent_voice: 'Клонирование голоса',
+  first_read: 'Первое чтение',
+  onboarding: 'Онбординг',
+  settings: 'Настройки',
+  deep_link: 'Deep link'
+};
 let anAutoTimer = null;
+let anTitles = {}; // tale_id -> human title (from catalog)
 
 function anSince() {
   const h = parseInt(document.getElementById('an-range').value, 10) || 24;
   return new Date(Date.now() - h * 3600 * 1000).toISOString();
 }
 function anFmt(t) { return t ? new Date(t).toLocaleString('ru') : '—'; }
-function anCount(list, name) { const r = list.find(function (e) { return e.name === name; }); return r ? r.count : 0; }
+function anFmtDur(ms) {
+  if (!ms) return '—';
+  const s = Math.round(ms / 1000);
+  if (s < 60) return s + ' с';
+  return Math.floor(s / 60) + ' мин ' + (s % 60) + ' с';
+}
+function anMoney(rev) {
+  const parts = Object.keys(rev || {});
+  if (!parts.length) return '0';
+  return parts.map(function (c) { return (Math.round(rev[c] * 100) / 100) + ' ' + c; }).join(' + ');
+}
+function anMax(arr) { return Math.max.apply(null, [1].concat(arr)); }
 
 async function loadAnalytics() {
   const status = document.getElementById('an-status');
@@ -778,57 +801,145 @@ async function loadAnalytics() {
       (sessF ? '&session=' + encodeURIComponent(sessF) : '') +
       (userF ? '&userId=' + encodeURIComponent(userF) : '');
     const results = await Promise.all([
-      api('/analytics/summary?since=' + since),
+      api('/analytics/insights?since=' + since),
       api(evQuery)
     ]);
-    const sum = results[0] || {};
+    const ins = results[0] || {};
     const events = results[1] || [];
-    renderAnFunnel(sum.events || []);
-    renderAnSummary(sum.events || []);
+    renderAnKpi(ins.totals || {});
+    renderAnFunnel(ins.funnel || {});
+    renderAnDaily(ins.daily || []);
+    renderAnSources(ins.sources || []);
+    renderAnPlatProducts(ins.platforms || [], ins.products || []);
+    renderAnTales(ins.topTales || []);
     renderAnEvents(events);
-    const total = (sum.events || []).reduce(function (a, e) { return a + e.count; }, 0);
+    const total = (ins.totals && ins.totals.events) || 0;
     if (status) status.textContent = 'Обновлено ' + new Date().toLocaleTimeString('ru') + ' · ' + total + ' событий за период';
   } catch (e) {
     if (status) status.textContent = 'Ошибка: ' + e.message;
   }
 }
 
-function renderAnFunnel(list) {
-  const view = anCount(list, 'paywall_view');
-  const start = anCount(list, 'purchase_start');
-  const ok = anCount(list, 'purchase_success');
-  const err = anCount(list, 'purchase_error');
-  const pct = function (a, b) { return b > 0 ? Math.round(a / b * 100) + '%' : '—'; };
-  const cards = [
-    { v: view,  l: 'paywall_view — показы пейволла',  sub: '' },
-    { v: start, l: 'purchase_start — нажатия «купить»', sub: pct(start, view) + ' от показов' },
-    { v: ok,    l: 'purchase_success — покупки',        sub: pct(ok, start) + ' от нажатий' },
-    { v: err,   l: 'purchase_error — ошибки/отмены',    sub: '' }
-  ];
+function anKpiCard(icon, val, label) {
+  return '<div class="kpi-card"><div class="kpi-icon">' + icon + '</div>' +
+    '<div class="kpi-val">' + esc(String(val)) + '</div>' +
+    '<div class="kpi-label">' + esc(label) + '</div></div>';
+}
+function renderAnKpi(t) {
+  const el = document.getElementById('an-kpi');
+  if (!el) return;
+  el.innerHTML =
+    anKpiCard('💰', anMoney(t.revenue), 'Доход за период') +
+    anKpiCard('🛒', t.purchases || 0, 'Покупок') +
+    anKpiCard('🎁', t.trials || 0, 'из них пробных') +
+    anKpiCard('📖', t.completions || 0, 'Сказок дочитано') +
+    anKpiCard('👤', t.sessions || 0, 'Сессий') +
+    anKpiCard('📊', t.events || 0, 'Всего событий');
+}
+
+function anFunnelRow(label, count, max, sub, cls) {
+  const w = max > 0 ? Math.max(count / max * 100, 3) : 3;
+  return '<div class="funnel-row">' +
+    '<div class="funnel-head"><span class="funnel-name">' + esc(label) + '</span>' +
+    (sub ? '<span class="funnel-pct">' + esc(sub) + '</span>' : '') + '</div>' +
+    '<div class="funnel-bar-wrap"><div class="funnel-bar ' + (cls || '') + '" style="width:' + w + '%">' + count + '</div></div>' +
+    '</div>';
+}
+function renderAnFunnel(f) {
   const el = document.getElementById('an-funnel');
   if (!el) return;
-  el.innerHTML = cards.map(function (c) {
-    return '<div class="stat-card">' +
-      '<span class="stat-value">' + c.v + '</span>' +
-      '<span class="stat-label">' + esc(c.l) + '</span>' +
-      (c.sub ? '<span class="stat-label" style="color:var(--accent)">' + esc(c.sub) + '</span>' : '') +
-      '</div>';
+  const view = f.paywall_view || 0, start = f.purchase_start || 0, ok = f.purchase_success || 0;
+  const max = anMax([view, start, ok]);
+  const pct = function (a, b) { return b > 0 ? Math.round(a / b * 100) + '%' : '—'; };
+  el.innerHTML =
+    anFunnelRow('Показан пейволл', view, max, null, 'f1') +
+    anFunnelRow('Нажали «купить»', start, max, pct(start, view) + ' от показов', 'f2') +
+    anFunnelRow('Купили', ok, max, pct(ok, start) + ' от нажатий · ' + pct(ok, view) + ' общая', 'f3') +
+    '<div class="funnel-secondary">' +
+      '<span>Закрыли пейволл: <b>' + (f.paywall_dismiss || 0) + '</b></span>' +
+      '<span>Ошибки/отмены: <b>' + (f.purchase_error || 0) + '</b></span>' +
+      '<span>Восстановления: <b>' + (f.purchase_restore || 0) + '</b></span>' +
+      '<span>Промокоды: <b>' + (f.promo_redeem || 0) + '</b></span>' +
+    '</div>';
+}
+
+function renderAnDaily(daily) {
+  const el = document.getElementById('an-daily');
+  if (!el) return;
+  if (!daily.length) { el.innerHTML = '<p class="hint">Нет данных за период</p>'; return; }
+  const max = anMax(daily.map(function (d) { return Math.max(d.paywall_view, d.purchase_success); }));
+  el.innerHTML = daily.map(function (d) {
+    const h1 = Math.max(d.paywall_view / max * 120, d.paywall_view ? 3 : 0);
+    const h2 = Math.max(d.purchase_success / max * 120, d.purchase_success ? 3 : 0);
+    return '<div class="daily-col" title="' + d.date + ' — показы: ' + d.paywall_view + ', покупки: ' + d.purchase_success + '">' +
+      '<div class="daily-bars">' +
+        '<div class="daily-bar dot-purple" style="height:' + h1 + 'px"></div>' +
+        '<div class="daily-bar dot-green" style="height:' + h2 + 'px"></div>' +
+      '</div><span class="daily-date">' + esc(d.date.slice(5)) + '</span></div>';
   }).join('');
 }
 
-function renderAnSummary(list) {
-  const tbody = document.getElementById('an-summary-body');
-  if (!tbody) return;
-  if (!list.length) { tbody.innerHTML = '<tr><td colspan="4" class="hint">Нет событий за период</td></tr>'; return; }
-  tbody.innerHTML = list.map(function (e) {
-    const known = AN_EVENTS[e.name];
-    return '<tr>' +
-      '<td>' + (known ? '' : '<span class="badge badge-used">?</span> ') + '<code>' + esc(e.name) + '</code></td>' +
-      '<td>' + esc(known || '—') + '</td>' +
-      '<td>' + e.count + '</td>' +
-      '<td class="muted-id">' + anFmt(e.last_seen) + '</td>' +
-      '</tr>';
+function anBarList(items, labelFn) {
+  if (!items.length) return '<p class="hint">Нет данных</p>';
+  const max = anMax(items.map(function (i) { return i.count; }));
+  return items.map(function (it) {
+    const w = Math.max(it.count / max * 100, 3);
+    return '<div class="bar-row"><span class="bar-label">' + esc(labelFn(it)) + '</span>' +
+      '<div class="bar-track"><div class="bar-fill" style="width:' + w + '%"></div></div>' +
+      '<span class="bar-count">' + it.count + '</span></div>';
   }).join('');
+}
+function renderAnSources(sources) {
+  const el = document.getElementById('an-sources');
+  if (!el) return;
+  el.innerHTML = anBarList(sources, function (s) { return AN_SOURCE_LABELS[s.source] || s.source || '—'; });
+}
+function renderAnPlatProducts(platforms, products) {
+  const el = document.getElementById('an-platproducts');
+  if (!el) return;
+  const prodItems = products.map(function (p) { return { count: p.count, _p: p }; });
+  el.innerHTML =
+    '<div class="sub-title">Платформы</div>' +
+    anBarList(platforms, function (p) { return p.platform; }) +
+    '<div class="sub-title" style="margin-top:14px">Продукты</div>' +
+    (prodItems.length
+      ? anBarList(prodItems, function (x) { return x._p.product_id + ' · ' + (Math.round(x._p.revenue * 100) / 100) + ' ' + x._p.currency; })
+      : '<p class="hint">Покупок пока нет</p>');
+}
+
+function renderAnTales(tales) {
+  const el = document.getElementById('an-tales');
+  if (!el) return;
+  if (!tales.length) {
+    el.innerHTML = '<p class="hint">Пока нет событий «сказка дочитана». Появятся, когда клиент начнёт слать <code>tale_complete</code> с ID сказки.</p>';
+    return;
+  }
+  el.innerHTML = tales.map(function (t, i) {
+    const title = anTitles[t.tale_id] || t.tale_id;
+    return '<div class="tale-card">' +
+      '<div class="tale-cover" id="an-cover-' + i + '"><span class="tale-rank">#' + (i + 1) + '</span></div>' +
+      '<div class="tale-info"><div class="tale-title">' + esc(title) + '</div>' +
+      '<div class="tale-stat">📖 ' + t.completions + ' дочит.</div>' +
+      '<div class="tale-stat muted-id">⏱ ' + anFmtDur(t.avg_duration_ms) + ' в среднем</div>' +
+      '</div></div>';
+  }).join('');
+  tales.forEach(function (t, i) { anSetCover(t.tale_id, 'an-cover-' + i); });
+}
+async function anSetCover(id, elId) {
+  try {
+    const res = await fetch(API + '/catalog/' + encodeURIComponent(id) + '/cover', { headers: { Authorization: 'Bearer ' + accessToken } });
+    if (!res.ok) return;
+    const url = URL.createObjectURL(await res.blob());
+    const el = document.getElementById(elId);
+    if (el) { el.style.backgroundImage = 'url(' + url + ')'; el.classList.add('has-cover'); }
+  } catch (_) { /* no cover — keep placeholder */ }
+}
+async function anLoadTitles() {
+  try {
+    const tales = await api('/catalog');
+    anTitles = {};
+    tales.forEach(function (t) { anTitles[t.id] = (t.titles && (t.titles.ru || Object.values(t.titles)[0])) || t.id; });
+  } catch (_) { /* ignore */ }
 }
 
 function renderAnEvents(rows) {
@@ -859,7 +970,7 @@ function renderAnLegend() {
 (function wireAnalytics() {
   const q = function (id) { return document.getElementById(id); };
   const navBtn = document.querySelector('[data-tab="analytics"]');
-  if (navBtn) navBtn.addEventListener('click', function () { renderAnLegend(); loadAnalytics(); });
+  if (navBtn) navBtn.addEventListener('click', function () { renderAnLegend(); anLoadTitles(); loadAnalytics(); });
   if (q('an-refresh-btn')) q('an-refresh-btn').addEventListener('click', loadAnalytics);
   if (q('an-apply-btn')) q('an-apply-btn').addEventListener('click', loadAnalytics);
   if (q('an-range')) q('an-range').addEventListener('change', loadAnalytics);

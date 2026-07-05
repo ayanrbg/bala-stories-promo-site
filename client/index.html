@@ -148,26 +148,52 @@
       </div>
       <p id="an-status" class="hint"></p>
 
-      <h3 class="section-title">Воронка монетизации</h3>
-      <div class="stats-grid" id="an-funnel"></div>
+      <!-- KPI cards -->
+      <div class="kpi-grid" id="an-kpi"></div>
 
-      <h3 class="section-title">Счётчики по событиям</h3>
-      <table class="data-table">
-        <thead><tr><th>Событие</th><th>Смысл</th><th>Кол-во</th><th>Последнее</th></tr></thead>
-        <tbody id="an-summary-body"></tbody>
-      </table>
-
-      <h3 class="section-title">Живой поток событий <span class="hint">что реально прислал клиент</span></h3>
-      <div class="inline-form" style="margin-bottom:10px">
-        <input type="text" id="an-f-name" class="input-sm" placeholder="событие (name)">
-        <input type="text" id="an-f-session" class="input-sm" placeholder="session">
-        <input type="text" id="an-f-user" class="input-sm" placeholder="userId">
-        <button id="an-apply-btn" class="btn btn-outline">Фильтр</button>
+      <!-- Funnel + daily chart -->
+      <div class="an-cols">
+        <div class="an-panel">
+          <h3 class="an-panel-title">Воронка монетизации</h3>
+          <div id="an-funnel" class="funnel-chart"></div>
+        </div>
+        <div class="an-panel">
+          <h3 class="an-panel-title">Динамика по дням</h3>
+          <div id="an-daily" class="daily-chart"></div>
+          <div class="chart-legend"><span><i class="dot dot-purple"></i>Показы пейволла</span><span><i class="dot dot-green"></i>Покупки</span></div>
+        </div>
       </div>
-      <table class="data-table">
-        <thead><tr><th>Время</th><th>Событие</th><th>Платформа</th><th>User / session</th><th>Параметры</th></tr></thead>
-        <tbody id="an-events-body"></tbody>
-      </table>
+
+      <!-- Sources + platforms/products -->
+      <div class="an-cols">
+        <div class="an-panel">
+          <h3 class="an-panel-title">Откуда открывают пейволл</h3>
+          <div id="an-sources" class="bar-list"></div>
+        </div>
+        <div class="an-panel">
+          <h3 class="an-panel-title">Платформы и продукты</h3>
+          <div id="an-platproducts"></div>
+        </div>
+      </div>
+
+      <!-- Popular tales -->
+      <h3 class="section-title">Популярные сказки <span class="hint">по числу дочитываний</span></h3>
+      <div id="an-tales" class="tales-grid"></div>
+
+      <!-- Live feed (collapsible) -->
+      <details class="an-live" open>
+        <summary class="section-title an-summary">Живой поток событий <span class="hint">что реально прислал клиент</span></summary>
+        <div class="inline-form" style="margin:10px 0">
+          <input type="text" id="an-f-name" class="input-sm" placeholder="событие (name)">
+          <input type="text" id="an-f-session" class="input-sm" placeholder="session">
+          <input type="text" id="an-f-user" class="input-sm" placeholder="userId">
+          <button id="an-apply-btn" class="btn btn-outline">Фильтр</button>
+        </div>
+        <table class="data-table">
+          <thead><tr><th>Время</th><th>Событие</th><th>Платформа</th><th>User / session</th><th>Параметры</th></tr></thead>
+          <tbody id="an-events-body"></tbody>
+        </table>
+      </details>
 
       <details class="an-legend">
         <summary>Легенда: какие события шлёт клиент в зеркало (8 имён)</summary>
