@@ -256,9 +256,18 @@ input:focus {
   color: var(--text-muted);
 }
 
-/* Tabs */
-.tab-content { display: none; padding: 0; }
+/* Tabs — a single horizontal gutter for ALL tab content, so nothing touches
+   the browser edge. Shared blocks that used to add their own 32px are zeroed
+   here so the gutter doesn't double. */
+.tab-content { display: none; padding: 0 32px 32px; }
 .tab-content.active { display: block; }
+.tab-content > .tab-header { padding-left: 0; padding-right: 0; }
+.tab-content .stats-grid { padding-left: 0; padding-right: 0; }
+.tab-content .data-table { margin-left: 0; margin-right: 0; max-width: 100%; }
+@media (max-width: 640px) {
+  .tab-content { padding: 0 16px 24px; }
+  .header { padding: 16px; }
+}
 
 .tab-header {
   display: flex;
