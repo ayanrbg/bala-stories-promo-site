@@ -664,3 +664,9 @@ details[open] > .an-summary::before { content: '▾ '; }
 .ret-fill { height: 100%; background: linear-gradient(90deg, #6d5efc, #a855f7); border-radius: 5px; transition: width .4s ease; }
 .ret-fill.ret-drop { background: linear-gradient(90deg, #f59e0b, #ef4444); }
 .ret-val { flex: 0 0 auto; font-size: 12px; min-width: 70px; text-align: right; color: var(--text); }
+
+/* Bottom "all tales" grid: header with search, coming-soon badge */
+.an-tales-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 26px; }
+.an-tales-header .section-title { margin: 0; }
+#an-tale-search { min-width: 240px; }
+.tale-badge { position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,.6); color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 999px; }

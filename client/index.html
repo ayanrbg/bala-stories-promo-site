@@ -182,14 +182,6 @@
         </div>
       </div>
 
-      <!-- Popular tales -->
-      <h3 class="section-title">Популярные сказки <span class="hint">по числу дочитываний · нажми на сказку для детальной аналитики</span></h3>
-      <div class="inline-form" style="margin:6px 0 14px">
-        <select id="an-tale-pick" class="input-sm"><option value="">— открыть аналитику любой сказки —</option></select>
-        <button id="an-tale-open" class="btn btn-outline">Открыть</button>
-      </div>
-      <div id="an-tales" class="tales-grid"></div>
-
       <!-- Live feed (collapsible) -->
       <details class="an-live" open>
         <summary class="section-title an-summary">Живой поток событий <span class="hint">что реально прислал клиент</span></summary>
@@ -213,6 +205,13 @@
           <tbody id="an-legend-body"></tbody>
         </table>
       </details>
+
+      <!-- All tales (bottom): click a tale for its deep-dive analytics -->
+      <div class="an-tales-header">
+        <h3 class="section-title">Сказки <span class="hint">нажми на сказку для детальной аналитики</span></h3>
+        <input type="text" id="an-tale-search" class="input-sm" placeholder="поиск по названию…">
+      </div>
+      <div id="an-tales" class="tales-grid"></div>
     </div>
 
     <!-- Activity Tab -->
