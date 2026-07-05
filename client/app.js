@@ -793,15 +793,17 @@ async function loadAnalytics() {
   if (status) status.textContent = 'Загрузка…';
   const since = encodeURIComponent(anSince());
   try {
+    const platform = document.getElementById('an-platform').value;
+    const platQ = platform ? '&platform=' + encodeURIComponent(platform) : '';
     const nameF = document.getElementById('an-f-name').value.trim();
     const sessF = document.getElementById('an-f-session').value.trim();
     const userF = document.getElementById('an-f-user').value.trim();
-    const evQuery = '/analytics/events?limit=200&since=' + since +
+    const evQuery = '/analytics/events?limit=200&since=' + since + platQ +
       (nameF ? '&name=' + encodeURIComponent(nameF) : '') +
       (sessF ? '&session=' + encodeURIComponent(sessF) : '') +
       (userF ? '&userId=' + encodeURIComponent(userF) : '');
     const results = await Promise.all([
-      api('/analytics/insights?since=' + since),
+      api('/analytics/insights?since=' + since + platQ),
       api(evQuery)
     ]);
     const ins = results[0] || {};
@@ -974,6 +976,7 @@ function renderAnLegend() {
   if (q('an-refresh-btn')) q('an-refresh-btn').addEventListener('click', loadAnalytics);
   if (q('an-apply-btn')) q('an-apply-btn').addEventListener('click', loadAnalytics);
   if (q('an-range')) q('an-range').addEventListener('change', loadAnalytics);
+  if (q('an-platform')) q('an-platform').addEventListener('change', loadAnalytics);
   if (q('an-auto')) q('an-auto').addEventListener('change', function (e) {
     if (anAutoTimer) { clearInterval(anAutoTimer); anAutoTimer = null; }
     if (e.target.checked) { anAutoTimer = setInterval(loadAnalytics, 10000); loadAnalytics(); }
