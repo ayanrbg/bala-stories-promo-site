@@ -97,8 +97,12 @@
       <div class="tab-header">
         <h2>Промокоды премиума</h2>
         <div class="inline-form">
+          <input type="text" id="premium-label-input" placeholder="Метка (напр. App Review)" class="input-sm">
           <input type="text" id="premium-code-input" placeholder="Код (авто)" class="input-sm">
           <input type="number" id="premium-days-input" placeholder="Дни" min="1" value="7" class="input-sm">
+          <label class="checkbox-inline" title="Многоразовый секретный код для ревьюеров (без лимита использований)">
+            <input type="checkbox" id="premium-reusable-input"> Многоразовый (ревью)
+          </label>
           <button id="create-premium-btn" class="btn btn-primary">Создать</button>
         </div>
       </div>
@@ -106,10 +110,13 @@
         <thead>
           <tr>
             <th>Код</th>
+            <th>Метка</th>
             <th>Длительность</th>
             <th>Статус</th>
-            <th>Использован кем</th>
+            <th>Использований</th>
+            <th>Последний</th>
             <th>Создан</th>
+            <th></th>
           </tr>
         </thead>
         <tbody id="premium-table-body"></tbody>

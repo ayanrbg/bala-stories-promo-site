@@ -324,6 +324,15 @@ input:focus {
   flex-wrap: wrap;
 }
 
+.checkbox-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
 /* Modal */
 .modal-overlay {
   display: none;

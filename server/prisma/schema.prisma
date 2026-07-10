@@ -42,6 +42,9 @@ model PremiumPromo {
   id           String    @id @default(uuid())
   code         String    @unique
   durationDays Int
+  label        String?
+  maxUses      Int?      // null = unlimited (reusable reviewer code); 1 = single-use
+  useCount     Int       @default(0)
   used         Boolean   @default(false)
   usedBy       String?
   usedAt       DateTime?

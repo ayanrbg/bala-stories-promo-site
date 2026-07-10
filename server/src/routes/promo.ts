@@ -50,15 +50,19 @@ router.post('/check', async (req: Request, res: Response): Promise<void> => {
   });
 
   if (premiumPromo) {
-    if (premiumPromo.used) {
+    // maxUses null => unlimited (reusable reviewer code); otherwise cap by useCount.
+    const limited = premiumPromo.maxUses != null;
+    if (limited && premiumPromo.useCount >= premiumPromo.maxUses!) {
       res.status(410).json({ error: 'Промокод уже использован' });
       return;
     }
 
+    const nextCount = premiumPromo.useCount + 1;
     await prisma.premiumPromo.update({
       where: { id: premiumPromo.id },
       data: {
-        used: true,
+        useCount: nextCount,
+        used: limited ? nextCount >= premiumPromo.maxUses! : false,
         usedBy: externalUserId || null,
         usedAt: new Date()
       }

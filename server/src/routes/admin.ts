@@ -139,14 +139,32 @@ router.get('/stats', async (_req: Request, res: Response): Promise<void> => {
 
 // Create premium promo
 router.post('/premium-promos', async (req: Request, res: Response): Promise<void> => {
-  const { durationDays, code } = req.body;
+  const { durationDays, code, label, reusable } = req.body;
 
   if (!durationDays || durationDays < 1) {
     res.status(400).json({ error: 'durationDays обязателен и должен быть >= 1' });
     return;
   }
 
-  const promoCode = code || crypto.randomBytes(4).toString('hex').toUpperCase();
+  // maxUses: reusable (reviewer) code => null (unlimited); otherwise a positive cap
+  // (defaults to 1 = single-use, backward compatible). `reusable: true` wins.
+  let maxUses: number | null;
+  if (reusable === true) {
+    maxUses = null;
+  } else if (req.body.maxUses != null) {
+    const n = parseInt(req.body.maxUses, 10);
+    if (!Number.isInteger(n) || n < 1) {
+      res.status(400).json({ error: 'maxUses должен быть целым >= 1' });
+      return;
+    }
+    maxUses = n;
+  } else {
+    maxUses = 1;
+  }
+
+  // Reusable codes are auto-generated longer & harder to guess (kept secret in-panel).
+  const autoBytes = maxUses === null ? 12 : 4;
+  const promoCode = code || crypto.randomBytes(autoBytes).toString('hex').toUpperCase();
 
   const existing = await prisma.premiumPromo.findUnique({ where: { code: promoCode } });
   if (existing) {
@@ -155,7 +173,7 @@ router.post('/premium-promos', async (req: Request, res: Response): Promise<void
   }
 
   const promo = await prisma.premiumPromo.create({
-    data: { code: promoCode, durationDays }
+    data: { code: promoCode, durationDays, maxUses, label: label || null }
   });
 
   res.status(201).json(promo);
@@ -167,6 +185,16 @@ router.get('/premium-promos', async (_req: Request, res: Response): Promise<void
     orderBy: { createdAt: 'desc' }
   });
   res.json(promos);
+});
+
+// Delete premium promo
+router.delete('/premium-promos/:id', async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+  try {
+    await prisma.premiumPromo.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch {
+    res.status(404).json({ error: 'Промокод не найден' });
+  }
 });
 
 export default router;

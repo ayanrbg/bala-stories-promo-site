@@ -190,14 +190,37 @@ async function renderPremiumPromos(promos) {
       const nm = info && info.name ? info.name : null;
       usedBy = (nm ? '<b>' + esc(nm) + '</b><br>' : '') + '<span class="muted-id">' + esc(p.usedBy) + '</span>';
     }
+    const unlimited = p.maxUses == null;
+    let statusBadge, statusText;
+    if (unlimited) {
+      statusBadge = 'badge-available'; statusText = 'Многоразовый';
+    } else if (p.used) {
+      statusBadge = 'badge-used'; statusText = 'Исчерпан';
+    } else {
+      statusBadge = 'badge-available'; statusText = 'Доступен';
+    }
+    const uses = (p.useCount || 0) + ' / ' + (unlimited ? '∞' : p.maxUses);
     return '<tr>' +
       '<td><code>' + esc(p.code) + '</code></td>' +
+      '<td>' + (p.label ? esc(p.label) : '—') + '</td>' +
       '<td>' + p.durationDays + ' дней</td>' +
-      '<td><span class="badge ' + (p.used ? 'badge-used' : 'badge-available') + '">' + (p.used ? 'Использован' : 'Доступен') + '</span></td>' +
+      '<td><span class="badge ' + statusBadge + '">' + statusText + '</span></td>' +
+      '<td>' + uses + '</td>' +
       '<td>' + usedBy + '</td>' +
       '<td>' + new Date(p.createdAt).toLocaleDateString('ru') + '</td>' +
+      '<td><button class="btn btn-danger" onclick="deletePremiumPromo(\'' + p.id + '\')">Удалить</button></td>' +
       '</tr>';
   }).join('');
+}
+
+async function deletePremiumPromo(id) {
+  if (!confirm('Удалить промокод?')) return;
+  try {
+    await api('/admin/premium-promos/' + id, { method: 'DELETE' });
+    loadAdminData();
+  } catch (err) {
+    alert(err.message);
+  }
 }
 
 async function deleteBlogger(id) {
@@ -274,6 +297,8 @@ function generateField(fieldId) {
 // Create premium promo
 document.getElementById('create-premium-btn').addEventListener('click', async () => {
   const code = document.getElementById('premium-code-input').value || undefined;
+  const label = document.getElementById('premium-label-input').value || undefined;
+  const reusable = document.getElementById('premium-reusable-input').checked;
   const durationDays = parseInt(document.getElementById('premium-days-input').value);
 
   if (!durationDays || durationDays < 1) { alert('Укажите количество дней'); return; }
@@ -281,9 +306,11 @@ document.getElementById('create-premium-btn').addEventListener('click', async ()
   try {
     await api('/admin/premium-promos', {
       method: 'POST',
-      body: JSON.stringify({ code, durationDays })
+      body: JSON.stringify({ code, durationDays, label, reusable })
     });
     document.getElementById('premium-code-input').value = '';
+    document.getElementById('premium-label-input').value = '';
+    document.getElementById('premium-reusable-input').checked = false;
     loadAdminData();
   } catch (err) {
     alert(err.message);
