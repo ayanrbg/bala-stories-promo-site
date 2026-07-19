@@ -43,6 +43,7 @@ model PremiumPromo {
   code         String    @unique
   durationDays Int
   used         Boolean   @default(false)
+  reusable     Boolean   @default(false)
   usedBy       String?
   usedAt       DateTime?
   createdAt    DateTime  @default(now())

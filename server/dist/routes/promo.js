@@ -42,18 +42,22 @@ router.post('/check', async (req, res) => {
         where: { code }
     });
     if (premiumPromo) {
-        if (premiumPromo.used) {
-            res.status(410).json({ error: 'Промокод уже использован' });
-            return;
-        }
-        await prisma.premiumPromo.update({
-            where: { id: premiumPromo.id },
-            data: {
-                used: true,
-                usedBy: externalUserId || null,
-                usedAt: new Date()
+        // Reusable codes (e.g. app-store review codes) can be redeemed unlimited
+        // times and are never consumed. One-time codes keep the original behaviour.
+        if (!premiumPromo.reusable) {
+            if (premiumPromo.used) {
+                res.status(410).json({ error: 'Промокод уже использован' });
+                return;
             }
-        });
+            await prisma.premiumPromo.update({
+                where: { id: premiumPromo.id },
+                data: {
+                    used: true,
+                    usedBy: externalUserId || null,
+                    usedAt: new Date()
+                }
+            });
+        }
         res.json({
             type: 'premium',
             durationDays: premiumPromo.durationDays
