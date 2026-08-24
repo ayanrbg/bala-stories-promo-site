@@ -93,23 +93,27 @@ function render() {
 
 // ─────────────────────────── карточка кода ───────────────────────────
 
-function chart(daily) {
+// У кода на сказки левая полоса — привязки на сервере, у обычного кода такой
+// величины нет вовсе, там это вводы. Одна подпись на оба случая была бы враньём
+// в одном из них.
+function chart(daily, kind) {
   const days = daily.slice(-30);
   if (!days.length) return '<p class="muted">Пока ничего не происходило</p>';
 
+  const left = kind === 'tale' ? 'привязки' : 'вводы';
   const max = Math.max(...days.map((d) => Math.max(d.bindings, d.initial + d.renewals)), 1);
   const h = (n) => Math.round((n / max) * 100);
 
   return `
     <div class="chart">${days.map((d) => `
-      <div class="col" title="${d.date}: привязок ${d.bindings}, оплат ${d.initial + d.renewals}">
+      <div class="col" title="${d.date}: ${left} ${d.bindings}, оплат ${d.initial + d.renewals}">
         <div class="b bind" style="height:${h(d.bindings)}%"></div>
         <div class="b pay" style="height:${h(d.initial + d.renewals)}%"></div>
       </div>`).join('')}
     </div>
     <div class="chart-x"><span>${days[0].date}</span>${days.length > 1 ? `<span>${days[days.length - 1].date}</span>` : ''}</div>
     <div class="chart-key">
-      <span><i style="background:#3f3a63"></i>привязки</span>
+      <span><i style="background:#3f3a63"></i>${left}</span>
       <span><i style="background:#8b5cf6"></i>оплаты</span>
     </div>`;
 }
@@ -157,7 +161,7 @@ function renderDetail(p) {
       <div class="tale-list">${p.taleTitles.map((t) => `<span>${esc(t)}</span>`).join('')}</div>` : ''}
 
     <h3>По дням</h3>
-    ${chart(p.daily || [])}
+    ${chart(p.daily || [], p.kind)}
 
     ${p.payments && p.payments.length ? `
       <h3>Оплаты</h3>

@@ -287,11 +287,18 @@ async function buildDetail(code: string, from?: string, to?: string): Promise<un
   if (!blogger) return null;
 
   const when = range(from, to);
-  const uses = await prisma.promoUse.findMany({
-    where: { bloggerId: blogger.id, app: APP, ...(when ? { createdAt: when } : {}) },
-    select: { action: true, createdAt: true, transactionId: true },
-    orderBy: { createdAt: 'asc' },
-  });
+  const [uses, mirrored] = await Promise.all([
+    prisma.promoUse.findMany({
+      where: { bloggerId: blogger.id, app: APP, ...(when ? { createdAt: when } : {}) },
+      select: { action: true, createdAt: true, transactionId: true },
+      orderBy: { createdAt: 'asc' },
+    }),
+    // Ровно та же поправка, что и в списке. Без неё карточка показывала бы 22
+    // там, где в списке 14, и расхождение читалось бы как поломка витрины.
+    prisma.talePromoUse.count({
+      where: { app: APP, promo: { bloggerId: blogger.id }, ...(when ? { createdAt: when } : {}) },
+    }),
+  ]);
 
   const byDay: Record<string, { bindings: number; initial: number; renewals: number }> = {};
   let paid = 0;
@@ -305,7 +312,7 @@ async function buildDetail(code: string, from?: string, to?: string): Promise<un
     }
   }
 
-  const enteredCount = uses.filter((u) => u.action === 'ENTERED').length;
+  const enteredCount = Math.max(0, uses.filter((u) => u.action === 'ENTERED').length - mirrored);
 
   return {
     kind: 'legacy',
@@ -328,10 +335,10 @@ async function buildDetail(code: string, from?: string, to?: string): Promise<un
     daily: Object.entries(byDay)
       .map(([date, v]) => ({ date, ...v }))
       .sort((a, b) => a.date.localeCompare(b.date)),
-    // Обычный код блогера считается по журналу вводов, у которого нет колонки
-    // с кодом: вводы его кодов на сказки попали в тот же журнал. В списке они
-    // вычтены оценкой, в карточке — нет, и врать про точность не стоит.
-    note: 'Обычный код блогера: счётчики берутся из общего журнала вводов, поэтому включают вводы его же кодов на сказки.',
+    // Итог поправлен, а разбивка по дням — нет: в журнале вводов нет колонки с
+    // кодом, и вычесть зеркальные вводы из конкретного дня не из чего. Врать
+    // про точность не стоит, поэтому оговорка едет вместе с данными.
+    note: 'Обычный код блогера: считается по общему журналу вводов. Вводы кодов на сказки из итога вычтены, но в разбивке по дням они остаются.',
   };
 }
 
