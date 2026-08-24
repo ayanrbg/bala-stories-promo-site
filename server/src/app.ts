@@ -10,6 +10,8 @@ import alertsRoutes from './routes/alerts';
 import usersRoutes from './routes/users';
 import analyticsRoutes from './routes/analytics';
 import logsRoutes from './routes/logs';
+import pushRoutes from './routes/push';
+import publicStatsRoutes from './routes/publicStats';
 
 const app = express();
 
@@ -29,6 +31,18 @@ app.use('/api/alerts', alertsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/logs', logsRoutes);
+app.use('/api/push', pushRoutes);
+
+// Открытая витрина промокодов блогеров: без логина, только счётчики. Отдельный
+// префикс, а не ветка внутри /api/admin, — чтобы «публично» читалось из адреса
+// и нельзя было по неосторожности выставить наружу админскую ручку.
+app.use('/api/public', publicStatsRoutes);
+
+// Своя страница, а не вкладка админского SPA: у неё нет ни токена, ни доступа
+// к его коду. Диктовать блогерам /blogers проще, чем ссылку с параметрами.
+app.get('/blogers', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../../client/blogers.html'));
+});
 
 // SPA fallback
 app.get('*', (_req, res) => {

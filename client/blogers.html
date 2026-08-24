@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Промокоды блогеров — Bala Stories</title>
+  <meta name="robots" content="noindex">
+  <link rel="stylesheet" href="blogers.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-inner">
+      <div>
+        <h1>Промокоды блогеров</h1>
+        <p class="sub">Bala Stories · вводы, привязки и оплаты по каждому коду</p>
+      </div>
+      <div class="updated" id="updated"></div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="cards" id="totals"></section>
+
+    <section class="controls">
+      <input type="search" id="search" placeholder="Поиск по коду или имени блогера" autocomplete="off">
+      <select id="period">
+        <option value="all">За всё время</option>
+        <option value="7">Последние 7 дней</option>
+        <option value="30">Последние 30 дней</option>
+        <option value="90">Последние 90 дней</option>
+      </select>
+      <select id="sort">
+        <option value="payments">Сначала по оплатам</option>
+        <option value="entered">Сначала по вводам</option>
+        <option value="conversion">Сначала по конверсии</option>
+        <option value="code">По коду (А-Я)</option>
+        <option value="blogger">По блогеру (А-Я)</option>
+      </select>
+    </section>
+
+    <section class="table-wrap">
+      <table id="table">
+        <thead>
+          <tr>
+            <th>Код</th>
+            <th>Блогер</th>
+            <th>Тип</th>
+            <th class="num">Вводов</th>
+            <th class="num">Привязок</th>
+            <th class="num">Оплат</th>
+            <th class="num">Конверсия</th>
+            <th>Открывает</th>
+            <th>Последняя оплата</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <p class="empty" id="empty" hidden>Ничего не нашлось</p>
+    </section>
+
+    <p class="rule" id="rule"></p>
+    <p class="legend">
+      <b>Вводов</b> — сколько раз код ввели в приложении.
+      <b>Привязок</b> — за сколькими людьми код закрепился на сервере.
+      <b>Оплат</b> — сколько из них потом оплатили подписку.
+      Суммы и вознаграждение на этой странице не показываются.
+    </p>
+  </main>
+
+  <div class="overlay" id="overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true">
+      <button class="close" id="close" aria-label="Закрыть">×</button>
+      <div id="detail"></div>
+    </div>
+  </div>
+
+  <script src="blogers.js"></script>
+</body>
+</html>

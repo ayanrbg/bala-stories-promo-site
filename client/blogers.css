@@ -1,0 +1,178 @@
+/* Витрина промокодов блогеров. Своя таблица стилей, а не style.css админки:
+   страница открыта, и общий файл однажды притащил бы сюда чужую вёрстку. */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0f0f14;
+  --bg-card: #1a1a24;
+  --bg-input: #252533;
+  --border: #2d2d3d;
+  --text: #e4e4eb;
+  --text-muted: #8888a0;
+  --accent: #8b5cf6;
+  --success: #22c55e;
+  --warn: #f59e0b;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 20px; }
+
+.top {
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, #16161f, var(--bg));
+  padding: 28px 0;
+  margin-bottom: 28px;
+}
+.top-inner { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.top h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+.sub { color: var(--text-muted); font-size: 14px; margin-top: 6px; }
+.updated { color: var(--text-muted); font-size: 13px; }
+
+/* Карточки итогов */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 22px; }
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 18px;
+}
+.card .k { color: var(--text-muted); font-size: 13px; }
+.card .v { font-size: 26px; font-weight: 700; margin-top: 4px; letter-spacing: -0.02em; }
+
+/* Управление */
+.controls { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.controls input, .controls select {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 14px;
+  padding: 10px 14px;
+  outline: none;
+  font-family: inherit;
+}
+.controls input { flex: 1 1 280px; }
+.controls input:focus, .controls select:focus { border-color: var(--accent); }
+
+/* Таблица */
+.table-wrap {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow-x: auto;
+}
+table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 900px; }
+th {
+  text-align: left;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+td { padding: 14px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr { cursor: pointer; transition: background 0.15s; }
+tbody tr:hover { background: #20202c; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.02em;
+}
+.muted { color: var(--text-muted); }
+.tag {
+  display: inline-block;
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.tag.tale { color: var(--accent); border-color: #3b2d63; background: #201a33; }
+.conv { font-weight: 600; }
+.conv.good { color: var(--success); }
+.tales { max-width: 260px; color: var(--text-muted); font-size: 13px; }
+
+.empty { padding: 28px 16px; text-align: center; color: var(--text-muted); }
+.rule { margin-top: 16px; color: var(--text-muted); font-size: 13px; }
+.legend { margin: 8px 0 40px; color: var(--text-muted); font-size: 13px; line-height: 1.6; }
+.legend b { color: var(--text); font-weight: 600; }
+
+/* Карточка кода */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 40px 16px;
+  overflow-y: auto;
+  z-index: 10;
+}
+/* display:flex сильнее атрибута hidden — без этой строки закрытая карточка
+   висит поверх страницы и гасит её собственным затемнением. */
+.overlay[hidden] { display: none; }
+.modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 720px;
+  padding: 26px;
+  position: relative;
+}
+.close {
+  position: absolute; top: 14px; right: 16px;
+  background: none; border: none; color: var(--text-muted);
+  font-size: 26px; line-height: 1; cursor: pointer;
+}
+.close:hover { color: var(--text); }
+.modal h2 { font-size: 20px; margin-bottom: 4px; }
+.modal .who { color: var(--text-muted); font-size: 14px; margin-bottom: 18px; }
+.mini { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 20px; }
+.mini div { background: var(--bg-input); border-radius: 10px; padding: 12px 14px; }
+.mini .k { color: var(--text-muted); font-size: 12px; }
+.mini .v { font-size: 20px; font-weight: 700; margin-top: 2px; }
+.modal h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin: 22px 0 10px; }
+
+/* График по дням — полосы на CSS, без библиотек */
+/* Две полосы рядом, а не одна на другой: привязки и оплаты — разные величины,
+   а поставленные стопкой они читались бы как сумма. */
+.chart { display: flex; align-items: stretch; justify-content: flex-start; gap: 4px; height: 120px; padding-top: 8px; }
+/* Потолок ширины — чтобы один-единственный день не расползался полосой во всю
+   карточку и не читался как что-то огромное. */
+.chart .col { flex: 1 1 0; max-width: 44px; display: flex; align-items: flex-end; gap: 2px; min-width: 0; }
+.chart .b { flex: 1 1 0; border-radius: 3px 3px 0 0; min-height: 2px; }
+.chart .b.bind { background: #3f3a63; }
+.chart .b.pay { background: var(--accent); }
+.chart-x { display: flex; justify-content: space-between; color: var(--text-muted); font-size: 12px; margin-top: 8px; }
+.chart-key { display: flex; gap: 16px; color: var(--text-muted); font-size: 12px; margin-top: 10px; }
+.chart-key i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; }
+
+.feed { max-height: 260px; overflow-y: auto; }
+.feed div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.feed div:last-child { border-bottom: none; }
+.feed .off { color: var(--text-muted); }
+.note { color: var(--warn); font-size: 13px; line-height: 1.5; margin-top: 16px; }
+.tale-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.tale-list span { background: var(--bg-input); border-radius: 8px; padding: 6px 10px; font-size: 13px; }
+
+@media (max-width: 640px) {
+  .top { padding: 20px 0; margin-bottom: 20px; }
+  .top h1 { font-size: 20px; }
+  .modal { padding: 20px; }
+}
