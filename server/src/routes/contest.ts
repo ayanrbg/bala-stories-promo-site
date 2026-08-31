@@ -208,9 +208,9 @@ function publicParticipant(p: ParticipantRow) {
     youtube: p.youtube,
     phone: p.phone,
     code: p.code,
-    // Анкета считается заполненной, если названа хотя бы одна сеть: автор
-    // снимает не везде, и требовать все — значит требовать выдуманное.
-    profileComplete: !!(p.instagram || p.tiktok || p.telegram || p.youtube),
+    // Анкета заполнена, если названы телефон и хотя бы одна сеть: автор снимает
+    // не везде, и требовать все сети — значит требовать выдуманное.
+    profileComplete: !!(p.phone && (p.instagram || p.tiktok || p.telegram || p.youtube)),
     disqualified: p.disqualified,
   };
 }
@@ -274,15 +274,19 @@ router.patch('/profile', requireParticipant, async (req: Request, res: Response)
     });
     return;
   }
-  if (phone.length > 32) {
-    res.status(400).json({ error: 'bad_phone', message: 'Слишком длинный номер' });
+  // Телефон обязателен: соцсеть может быть закрытой, ник — смениться, а связаться
+  // с победителем надо наверняка. Считаем цифры, а не длину строки: «+7 (700)
+  // 000-00-00» и «87000000000» — один и тот же номер.
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length < 10 || digits.length > 15 || phone.length > 32) {
+    res.status(400).json({ error: 'bad_phone', message: 'Укажите телефон для связи' });
     return;
   }
 
   try {
     await prisma.participant.update({
       where: { id: req.participantId! },
-      data: { instagram, tiktok, telegram, youtube, phone: phone || null },
+      data: { instagram, tiktok, telegram, youtube, phone },
     });
 
     await issueCodeFor(req.participantId!);

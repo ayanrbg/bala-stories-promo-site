@@ -50,7 +50,7 @@
         <h2 class="card-title">Как участвовать</h2>
         <ol class="steps">
           <li><b>Снимите видео</b> с приложением Bala и расскажите про него своей аудитории.</li>
-          <li><b>Назовите свой промокод</b> — он у вас личный, его видно на вкладке «Мой результат».</li>
+          <li><b>Назовите свой промокод</b> — он у вас личный, его видно на вкладке «Мой профиль».</li>
           <li><b>Зритель вводит код</b> в приложении и получает сказки в подарок. Это и есть активация.</li>
         </ol>
       </div>
@@ -159,8 +159,8 @@
             </div>
 
             <label class="field">
-              <span>Телефон для связи <i>необязательно</i></span>
-              <input id="fPhone" type="tel" inputmode="tel" placeholder="+7 700 000 00 00">
+              <span>Телефон для связи</span>
+              <input id="fPhone" type="tel" inputmode="tel" placeholder="+7 700 000 00 00" required>
             </label>
             <p class="form-error" id="formError" hidden></p>
             <button class="btn btn-gold" id="formSubmit" type="submit">Получить промокод</button>
@@ -210,7 +210,7 @@
 
   <nav class="tabs">
     <button class="tab is-active" id="tabRules" type="button">Условия</button>
-    <button class="tab" id="tabMe" type="button">Мой результат</button>
+    <button class="tab" id="tabMe" type="button">Мой профиль</button>
   </nav>
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
