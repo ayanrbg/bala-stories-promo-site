@@ -202,13 +202,43 @@ function publicParticipant(p: ParticipantRow) {
     name: p.name,
     email: p.email,
     avatarUrl: p.avatarUrl,
-    nickname: p.nickname,
-    socialUrl: p.socialUrl,
+    instagram: p.instagram,
+    tiktok: p.tiktok,
+    telegram: p.telegram,
+    youtube: p.youtube,
     phone: p.phone,
     code: p.code,
-    profileComplete: !!(p.nickname && p.socialUrl),
+    // Анкета считается заполненной, если названа хотя бы одна сеть: автор
+    // снимает не везде, и требовать все — значит требовать выдуманное.
+    profileComplete: !!(p.instagram || p.tiktok || p.telegram || p.youtube),
     disqualified: p.disqualified,
   };
+}
+
+/**
+ * Ник без @ и без адреса. Половина людей вставит `@mama.blog`, вторая —
+ * `https://instagram.com/mama.blog/?hl=ru`, и обе правы: просили ник, а под
+ * рукой кнопка «скопировать ссылку на профиль».
+ */
+function normalizeHandle(raw: unknown): string | null {
+  let s = String(raw ?? '').trim();
+  if (!s) return null;
+
+  s = s.split(/[?#]/)[0].replace(/\/+$/, '');
+  if (/^(?:https?:\/\/)?(?:[a-z0-9-]+\.)+[a-z]{2,}\//i.test(s)) {
+    const parts = s.split('/').filter(Boolean);
+    s = parts[parts.length - 1] || '';
+  }
+  s = s.replace(/^@+/, '').trim();
+  return s ? s.slice(0, 60) : null;
+}
+
+/** У YouTube ссылка: канал по @-нику опознать труднее, чем по адресу. */
+function normalizeYoutube(raw: unknown): string | null {
+  const s = String(raw ?? '').trim();
+  if (!s) return null;
+  if (/^https?:\/\//i.test(s)) return s.slice(0, 300);
+  return ('https://youtube.com/@' + s.replace(/^@+/, '')).slice(0, 300);
 }
 
 router.get('/me', requireParticipant, async (req: Request, res: Response): Promise<void> => {
@@ -229,16 +259,19 @@ router.get('/me', requireParticipant, async (req: Request, res: Response): Promi
 // PATCH /api/contest/profile — анкета. Здесь же выдаётся код: заполненная
 // анкета и есть условие его получения.
 router.patch('/profile', requireParticipant, async (req: Request, res: Response): Promise<void> => {
-  const nickname = String(req.body?.nickname || '').trim();
-  const socialUrl = String(req.body?.socialUrl || '').trim();
+  const instagram = normalizeHandle(req.body?.instagram);
+  const tiktok = normalizeHandle(req.body?.tiktok);
+  const telegram = normalizeHandle(req.body?.telegram);
+  const youtube = normalizeYoutube(req.body?.youtube);
   const phone = String(req.body?.phone || '').trim();
 
-  if (nickname.length < 2 || nickname.length > 40) {
-    res.status(400).json({ error: 'bad_nickname', message: 'Ник — от 2 до 40 символов' });
-    return;
-  }
-  if (!/^https?:\/\/\S+$/i.test(socialUrl) || socialUrl.length > 300) {
-    res.status(400).json({ error: 'bad_social_url', message: 'Ссылка должна начинаться с https://' });
+  // Хватает одной сети. Требовать больше нечестно: у одного всё в TikTok,
+  // у другого только канал на YouTube, и выдуманные ники нам не нужны.
+  if (!instagram && !tiktok && !telegram && !youtube) {
+    res.status(400).json({
+      error: 'social_required',
+      message: 'Укажите хотя бы одну соцсеть — по ней мы вас найдём',
+    });
     return;
   }
   if (phone.length > 32) {
@@ -249,7 +282,7 @@ router.patch('/profile', requireParticipant, async (req: Request, res: Response)
   try {
     await prisma.participant.update({
       where: { id: req.participantId! },
-      data: { nickname, socialUrl, phone: phone || null },
+      data: { instagram, tiktok, telegram, youtube, phone: phone || null },
     });
 
     await issueCodeFor(req.participantId!);

@@ -1718,12 +1718,28 @@ function ctEsc(s) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// Ники храним без адреса, а в таблице они должны открываться в один клик —
+// поэтому адрес собираем здесь, а не в базе: сменится домен, правка будет одна.
+var CT_SOCIALS = [
+  { key: 'instagram', label: 'IG', url: function (h) { return 'https://instagram.com/' + h; } },
+  { key: 'tiktok', label: 'TT', url: function (h) { return 'https://tiktok.com/@' + h; } },
+  { key: 'telegram', label: 'TG', url: function (h) { return 'https://t.me/' + h; } },
+  { key: 'youtube', label: 'YT', url: function (h) { return h; } }
+];
+
+function ctSocials(p) {
+  return CT_SOCIALS.filter(function (s) { return p[s.key]; }).map(function (s) {
+    var h = p[s.key];
+    var text = s.key === 'youtube' ? 'канал' : h;
+    return '<a href="' + ctEsc(s.url(h)) + '" target="_blank" rel="noopener" title="' + ctEsc(h) + '">' +
+           '<b>' + s.label + '</b> ' + ctEsc(text) + '</a>';
+  }).join('<br>');
+}
+
 function ctRow(p) {
   var place = p.disqualified ? '—' : (p.rank || '—');
   var medal = !p.disqualified && p.rank <= 3 ? ['🥇', '🥈', '🥉'][p.rank - 1] + ' ' : '';
-  var social = p.socialUrl
-    ? '<a href="' + ctEsc(p.socialUrl) + '" target="_blank" rel="noopener">' + ctEsc(p.nickname || 'профиль') + '</a>'
-    : ctEsc(p.nickname || '—');
+  var social = ctSocials(p) || '—';
   var contacts = [p.phone, p.email].filter(Boolean).map(ctEsc).join('<br>');
 
   var status = p.disqualified
@@ -1875,7 +1891,7 @@ async function ctActivity(id) {
 
     box.innerHTML =
       '<h3 class="section-title">Активность кода ' + ctEsc(d.code) +
-        (d.nickname ? ' <span class="hint">' + ctEsc(d.nickname) + '</span>' : '') + '</h3>' +
+        (d.handle ? ' <span class="hint">' + ctEsc(d.handle) + '</span>' : '') + '</h3>' +
       '<p class="hint">Всего активаций: ' + d.bindings +
         ' · разных адресов: ' + d.ipStats.distinctIps +
         (unknown > 0 ? ' · без адреса: ' + unknown : '') + '</p>' +

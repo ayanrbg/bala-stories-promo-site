@@ -106,19 +106,60 @@
       <!-- состояние B: вошёл, анкета не заполнена -->
       <div class="state" id="stateForm" hidden>
         <div class="card">
-          <h2 class="card-title">Ещё пара вопросов</h2>
-          <p class="muted">Нужны, чтобы связаться с вами и передать приз. Сразу после этого выдадим промокод.</p>
+          <h2 class="card-title">Где вас найти</h2>
+          <p class="muted">Заполните <b>хотя бы одну</b> строку — ту сеть, где вы снимаете. Остальные можно
+          пропустить. Это нужно, чтобы связаться с вами и передать приз.</p>
           <form id="profileForm" novalidate>
+            <div class="socials">
+              <label class="sf">
+                <span class="sf-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                    <rect x="3" y="3" width="18" height="18" rx="5.4"/>
+                    <circle cx="12" cy="12" r="4.1"/>
+                    <circle cx="17.3" cy="6.7" r="1.15" fill="currentColor" stroke="none"/>
+                  </svg>
+                </span>
+                <span class="sf-at">@</span>
+                <input id="fInstagram" type="text" placeholder="Instagram" autocomplete="off"
+                       autocapitalize="none" spellcheck="false">
+              </label>
+
+              <label class="sf">
+                <span class="sf-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M16.6 2.8c.35 2.05 1.6 3.5 3.6 3.7v2.6c-1.35.1-2.6-.3-3.65-1.05v6.2c0 3.45-2.5 5.85-5.6 5.85-2.95 0-5.25-2.25-5.25-5.25 0-3.05 2.45-5.35 5.5-5.25v2.65c-1.5-.1-2.8.95-2.8 2.5 0 1.5 1.1 2.65 2.6 2.65s2.55-1.1 2.55-2.75V2.8h3.05z"/>
+                  </svg>
+                </span>
+                <span class="sf-at">@</span>
+                <input id="fTiktok" type="text" placeholder="TikTok" autocomplete="off"
+                       autocapitalize="none" spellcheck="false">
+              </label>
+
+              <label class="sf">
+                <span class="sf-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M21.9 3.6 2.85 10.9c-.95.35-.9 1.6.1 1.85l4.7 1.45 1.8 5.45c.3.85 1.35 1.05 1.95.35l2.5-2.65 4.65 3.45c.7.5 1.65.1 1.85-.75l3.2-15.1c.2-.9-.75-1.65-1.7-1.35zM9.6 14.2l8.5-6.05-7 7.4-.3 3.25-1.2-4.6z"/>
+                  </svg>
+                </span>
+                <span class="sf-at">@</span>
+                <input id="fTelegram" type="text" placeholder="Telegram" autocomplete="off"
+                       autocapitalize="none" spellcheck="false">
+              </label>
+
+              <label class="sf">
+                <span class="sf-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                    <rect x="2.4" y="5.4" width="19.2" height="13.2" rx="4.2"/>
+                    <path d="M10.4 9.4 15.2 12l-4.8 2.6V9.4z" fill="currentColor" stroke="none"/>
+                  </svg>
+                </span>
+                <input id="fYoutube" type="text" inputmode="url" placeholder="Ссылка на канал YouTube"
+                       autocomplete="off" autocapitalize="none" spellcheck="false">
+              </label>
+            </div>
+
             <label class="field">
-              <span>Ник в соцсети</span>
-              <input id="fNickname" type="text" placeholder="@mama.blog" autocomplete="off" required>
-            </label>
-            <label class="field">
-              <span>Ссылка на профиль</span>
-              <input id="fSocial" type="url" inputmode="url" placeholder="https://instagram.com/mama.blog" required>
-            </label>
-            <label class="field">
-              <span>Телефон <i>для выплаты приза</i></span>
+              <span>Телефон <i>для выплаты приза, необязательно</i></span>
               <input id="fPhone" type="tel" inputmode="tel" placeholder="+7 700 000 00 00">
             </label>
             <p class="form-error" id="formError" hidden></p>
@@ -160,6 +201,7 @@
         </div>
 
         <p class="legal reveal" style="--d:180ms">
+          <button class="linklike" id="editContacts" type="button">Изменить контакты</button>
           <button class="linklike" id="logout" type="button">Выйти</button>
         </p>
       </div>

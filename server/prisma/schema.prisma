@@ -128,8 +128,13 @@ model Participant {
 
   // Анкета. Код выдаётся при её сохранении, поэтому "вошёл, но не заполнил" —
   // законное состояние, а не сбой.
-  nickname     String?
-  socialUrl    String?
+  // Ники в соцсетях. Заполнять все не нужно — хватает одного: автор снимает
+  // не везде, а нам нужен тот контакт, по которому его реально найти.
+  instagram    String?
+  tiktok       String?
+  telegram     String?
+  /// У YouTube ссылка, а не ник: канал по @-нику опознать труднее.
+  youtube      String?
   phone        String?
 
   code         String?   @unique

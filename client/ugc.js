@@ -12,7 +12,7 @@ const state = {
   me: null,          // участник или null
   standings: null,
   timeOffset: 0,     // серверное время минус часы телефона
-  pollTimer: null,
+  editing: false,    // открыта анкета, хотя код уже выдан
 };
 
 // ─────────────────────────── сеть ───────────────────────────
@@ -109,9 +109,20 @@ function showState(which) {
   }
 }
 
+function fillForm() {
+  const p = state.me || {};
+  $('fInstagram').value = p.instagram || '';
+  $('fTiktok').value = p.tiktok || '';
+  $('fTelegram').value = p.telegram || '';
+  $('fYoutube').value = p.youtube || '';
+  $('fPhone').value = p.phone || '';
+  // Код уже выдан — значит человек пришёл поправить контакты, а не получить код.
+  $('formSubmit').textContent = p.code ? 'Сохранить' : 'Получить промокод';
+}
+
 function renderMe() {
   if (!state.me) { showState('stateLogin'); return; }
-  if (!state.me.code) { showState('stateForm'); return; }
+  if (!state.me.code || state.editing) { fillForm(); showState('stateForm'); return; }
 
   showState('stateResult');
   $('codeText').textContent = state.me.code;
@@ -266,12 +277,15 @@ $('profileForm').addEventListener('submit', async (e) => {
     const data = await api('/profile', {
       method: 'PATCH',
       body: JSON.stringify({
-        nickname: $('fNickname').value,
-        socialUrl: $('fSocial').value,
+        instagram: $('fInstagram').value,
+        tiktok: $('fTiktok').value,
+        telegram: $('fTelegram').value,
+        youtube: $('fYoutube').value,
         phone: $('fPhone').value,
       }),
     });
     state.me = data.participant;
+    state.editing = false;
     renderMe();
     loadStandings();
   } catch (e2) {
@@ -279,8 +293,16 @@ $('profileForm').addEventListener('submit', async (e) => {
     err.textContent = (e2.data && e2.data.message) || 'Не получилось сохранить. Проверьте поля.';
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Получить промокод';
+    fillForm();
   }
+});
+
+// Контакты можно поправить и после выдачи кода: телефон для приза человек
+// часто добавляет позже, а опечатку в нике иначе пришлось бы чинить руками.
+$('editContacts').addEventListener('click', () => {
+  state.editing = true;
+  renderMe();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 });
 
 // ─────────────────────────── копирование кода ───────────────────────────

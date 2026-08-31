@@ -55,8 +55,10 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
         id: p.id,
         name: p.name,
         email: p.email,
-        nickname: p.nickname,
-        socialUrl: p.socialUrl,
+        instagram: p.instagram,
+        tiktok: p.tiktok,
+        telegram: p.telegram,
+        youtube: p.youtube,
         phone: p.phone,
         code: p.code,
         createdAt: p.createdAt,
@@ -281,7 +283,8 @@ router.get('/participants/:id/activity', async (req: Request, res: Response): Pr
 
     res.json({
       code: participant.code,
-      nickname: participant.nickname,
+      // Для заголовка карточки: первая названная сеть — по ней человека и узнают.
+      handle: participant.instagram || participant.tiktok || participant.telegram || participant.youtube,
       bindings: detail.bindings,
       daily: (detail.daily || []).filter((d) => d.bindings > 0),
       // Старые связки писались без адреса — «не знаем» и «один адрес» это
@@ -315,7 +318,7 @@ router.get('/export', async (_req: Request, res: Response): Promise<void> => {
   ]);
   const byId = new Map(standings.rows.map((r) => [r.participantId, r]));
 
-  const header = ['Место', 'Приз, ₸', 'Активации', 'Допущен', 'Код', 'Имя', 'Ник', 'Ссылка', 'Телефон', 'E-mail', 'Дисквалифицирован', 'Причина'];
+  const header = ['Место', 'Приз, ₸', 'Активации', 'Допущен', 'Код', 'Имя', 'Instagram', 'TikTok', 'Telegram', 'YouTube', 'Телефон', 'E-mail', 'Дисквалифицирован', 'Причина'];
   const lines = [header.join(';')];
 
   const sorted = participants
@@ -330,8 +333,10 @@ router.get('/export', async (_req: Request, res: Response): Promise<void> => {
       s?.qualified ? 'да' : 'нет',
       p.code ?? '',
       p.name ?? '',
-      p.nickname ?? '',
-      p.socialUrl ?? '',
+      p.instagram ?? '',
+      p.tiktok ?? '',
+      p.telegram ?? '',
+      p.youtube ?? '',
       p.phone ?? '',
       p.email,
       p.disqualified ? 'да' : '',
