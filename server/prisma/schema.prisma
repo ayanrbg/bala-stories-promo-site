@@ -120,7 +120,8 @@ model Contest {
 /// это окно дат при подсчёте, а не колонка здесь.
 model Participant {
   id           String    @id @default(uuid())
-  googleSub    String    @unique
+  /// null у тех, кто вошёл по ссылке, а не через Google.
+  googleSub    String?   @unique
   email        String    @unique
   name         String?
   avatarUrl    String?
@@ -134,6 +135,10 @@ model Participant {
   code         String?   @unique
   /// TalePromo, созданный под этот код: без него код не сработает в приложении.
   talePromoId  String?   @unique
+
+  /// Идентификатор последней выданной ссылки для входа. Сверка с ним и делает
+  /// ссылку одноразовой: вошедший её гасит, переслать дальше уже нечего.
+  inviteTokenId String?
 
   disqualified Boolean   @default(false)
   dqReason     String?

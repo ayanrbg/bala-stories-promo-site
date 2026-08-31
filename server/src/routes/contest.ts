@@ -9,6 +9,7 @@ import {
   sessionConfigured,
 } from '../lib/contestSession';
 import { issueCodeFor } from '../lib/contestCode';
+import { consumeInvite, issueInviteLink, sendInviteMail, mailConfigured } from '../lib/contestInvite';
 import { getContest, getStandings, StandingRow } from '../lib/contestStandings';
 
 /**
@@ -134,6 +135,58 @@ router.post('/auth/google', rateLimit, async (req: Request, res: Response): Prom
   }
 });
 
+// POST /api/contest/auth/invite { token } — вход по одноразовой ссылке.
+// Запасной путь для тех, у кого Google не открывается; ссылку выдаёт админ
+// или присылает письмо. Ссылка гаснет при первом успешном входе.
+router.post('/auth/invite', rateLimit, async (req: Request, res: Response): Promise<void> => {
+  const participantId = await consumeInvite(String(req.body?.token || ''));
+  if (!participantId) {
+    // Причину не уточняем: «ссылка уже использована» помогает только тому,
+    // кто перебирает чужие.
+    res.status(401).json({ error: 'bad_invite', message: 'Ссылка недействительна. Попросите новую.' });
+    return;
+  }
+
+  const p = await prisma.participant.findUnique({ where: { id: participantId } });
+  if (!p) {
+    res.status(401).json({ error: 'bad_invite' });
+    return;
+  }
+
+  issueSession(res, p.id);
+  console.log(`[UGC] вход по ссылке ${p.email}`);
+  res.json({ ok: true, participant: publicParticipant(p) });
+});
+
+// POST /api/contest/auth/magic { email } — прислать ссылку письмом.
+// Работает, только когда в .env есть SMTP; иначе честно отвечаем «нельзя»,
+// а не делаем вид, что письмо ушло.
+router.post('/auth/magic', rateLimit, async (req: Request, res: Response): Promise<void> => {
+  if (!mailConfigured()) {
+    res.status(503).json({ error: 'mail_not_configured', message: 'Вход по почте пока не подключён' });
+    return;
+  }
+
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 200) {
+    res.status(400).json({ error: 'bad_email', message: 'Проверьте адрес' });
+    return;
+  }
+
+  try {
+    const p =
+      (await prisma.participant.findUnique({ where: { email } })) ||
+      (await prisma.participant.create({ data: { email } }));
+    await sendInviteMail(email, await issueInviteLink(p.id));
+  } catch (e) {
+    console.error(`[UGC] письмо со ссылкой не ушло ${email}: ${(e as Error).message}`);
+  }
+
+  // Ответ одинаковый в любом случае: иначе по нему можно проверять, кто
+  // участвует в конкурсе.
+  res.json({ ok: true });
+});
+
 router.post('/auth/logout', (_req: Request, res: Response): void => {
   clearSession(res);
   res.json({ ok: true });
@@ -229,6 +282,9 @@ router.get('/info', async (_req: Request, res: Response): Promise<void> => {
     // Отдаём сюда, а не зашиваем в страницу: ключ живёт в .env одним экземпляром,
     // и смена OAuth-клиента не требует правки вёрстки.
     googleClientId: GOOGLE_CLIENT_ID || null,
+    // Показывать ли поле «прислать ссылку на почту»: обещать то, чего сервер
+    // не умеет, хуже, чем не предлагать вовсе.
+    mailLogin: mailConfigured(),
     // Часы на телефоне врут — обратный отсчёт синхронизируется по серверу.
     serverTime: new Date().toISOString(),
     prizes: [

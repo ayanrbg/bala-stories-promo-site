@@ -344,8 +344,49 @@ function checkInApp() {
 
 // ─────────────────────────── старт ───────────────────────────
 
+/**
+ * Вход по одноразовой ссылке. Отрабатывает до всего остального: человек пришёл
+ * по ней именно затем, чтобы оказаться внутри. Токен сразу вычищается из
+ * адресной строки — иначе он останется в истории браузера и в «поделиться».
+ */
+async function tryInvite() {
+  const token = new URLSearchParams(location.search).get('invite');
+  if (!token) return false;
+
+  history.replaceState(null, '', location.pathname);
+  try {
+    const data = await api('/auth/invite', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+    state.me = data.participant;
+    return true;
+  } catch (e) {
+    $('loginNote').hidden = false;
+    $('loginNote').textContent = (e.data && e.data.message) || 'Ссылка недействительна. Попросите новую.';
+    return false;
+  }
+}
+
+async function requestMagic() {
+  const input = $('magicEmail');
+  const note = $('magicNote');
+  const email = input.value.trim();
+  if (!email) return;
+  note.hidden = false;
+  note.textContent = 'Отправляем…';
+  try {
+    await api('/auth/magic', { method: 'POST', body: JSON.stringify({ email }) });
+    note.textContent = 'Если адрес верный, письмо со ссылкой уже в пути. Проверьте папку «Спам».';
+  } catch (e) {
+    note.textContent = (e.data && e.data.message) || 'Не получилось отправить.';
+  }
+}
+
 async function boot() {
   checkInApp();
+
+  const bySession = await tryInvite();
 
   try {
     state.info = await api('/info');
@@ -354,20 +395,29 @@ async function boot() {
     tickTimer();
     setInterval(tickTimer, 1000);
     initGoogle(state.info.googleClientId);
+    if (state.info.mailLogin) {
+      $('magicBox').hidden = false;
+      $('magicSend').addEventListener('click', requestMagic);
+    }
   } catch (e) {
     console.error('info:', e.message);
   }
 
-  try {
-    const data = await api('/me');
-    state.me = data.participant;
-  } catch (e) {
-    if (e.status !== 401) console.warn('me:', e.message);
-    state.me = null;
+  // По ссылке уже вошли — второй запрос за тем же самым не нужен.
+  if (!bySession) {
+    try {
+      const data = await api('/me');
+      state.me = data.participant;
+    } catch (e) {
+      if (e.status !== 401) console.warn('me:', e.message);
+      state.me = null;
+    }
   }
 
   await loadStandings();
   renderMe();
+  // Пришёл по ссылке — показываем сразу его результат, а не условия.
+  if (bySession) switchTab('me');
 
   // Обновляем цифры, пока вкладка открыта. Сервер всё равно кэширует минуту,
   // поэтому чаще спрашивать бессмысленно.

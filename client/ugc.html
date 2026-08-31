@@ -89,6 +89,17 @@
           <p class="muted">Войдите через Google — это займёт пару секунд. Код выдаётся сразу после короткой анкеты.</p>
           <div class="gbtn" id="gbtn"></div>
           <p class="login-note" id="loginNote" hidden>Вход временно недоступен. Попробуйте позже.</p>
+
+          <!-- Запасной путь: показывается, только если почта настроена на сервере.
+               Обещать то, чего сервер не умеет, хуже, чем не предлагать вовсе. -->
+          <div class="magic" id="magicBox" hidden>
+            <p class="magic-or">или войдите по ссылке на почту</p>
+            <div class="magic-row">
+              <input type="email" id="magicEmail" inputmode="email" placeholder="ваша почта" autocomplete="email">
+              <button class="btn btn-ghost" id="magicSend" type="button">Прислать</button>
+            </div>
+            <p class="magic-note" id="magicNote" hidden></p>
+          </div>
         </div>
       </div>
 

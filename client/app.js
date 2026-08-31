@@ -1732,6 +1732,7 @@ function ctRow(p) {
 
   var action =
     (p.code ? '<button class="btn btn-outline btn-sm" onclick="ctActivity(\'' + p.id + '\')">Активность</button> ' : '') +
+    '<button class="btn btn-outline btn-sm" onclick="ctLink(\'' + p.id + '\')" title="Одноразовая ссылка для входа">Ссылка</button> ' +
     (p.disqualified
       ? '<button class="btn btn-outline btn-sm" onclick="ctRestore(\'' + p.id + '\')">Вернуть</button>'
       : '<button class="btn btn-outline btn-sm" onclick="ctDisqualify(\'' + p.id + '\')">Снять</button>');
@@ -1793,6 +1794,54 @@ async function ctReopen() {
     loadContest();
   } catch (e) {
     ctq('ct-finalize-status').textContent = e.message;
+  }
+}
+
+// Запасной вход для тех, у кого не открывается Google. Ссылку показываем
+// текстом, чтобы её можно было отправить любым мессенджером: почта на сервере
+// не настроена, а WhatsApp у поддержки под рукой всегда.
+function ctShowLink(r) {
+  var box = ctq('ct-detail');
+  box.style.display = '';
+  box.innerHTML =
+    '<h3 class="section-title">Ссылка для входа: ' + ctEsc(r.email) + '</h3>' +
+    '<p class="hint">Работает <b>один раз</b> и действует до ' + ctFmtDate(r.expiresAt) +
+      '. Прежняя выданная ссылка этого человека только что перестала работать.' +
+      (r.mailed ? ' Письмо отправлено.' : (r.mailAvailable ? '' : ' Отправка письмом не подключена — передайте ссылку сами.')) + '</p>' +
+    '<input class="input-sm" style="width:100%" readonly onclick="this.select()" value="' + ctEsc(r.url) + '">' +
+    '<p class="hint" style="margin-top:8px">' +
+      '<button class="btn btn-outline btn-sm" onclick="ctCopy(\'' + ctEsc(r.url).replace(/'/g, "\\'") + '\', this)">Скопировать</button> ' +
+      '<button class="btn btn-outline btn-sm" onclick="ctq(\'ct-detail\').style.display=\'none\'">Свернуть</button>' +
+    '</p>';
+}
+
+function ctCopy(text, btn) {
+  navigator.clipboard.writeText(text).then(function () {
+    btn.textContent = 'Скопировано ✓';
+  }, function () {
+    btn.textContent = 'Скопируйте вручную';
+  });
+}
+
+async function ctLink(id) {
+  try {
+    ctShowLink(await api('/admin/contest/participants/' + id + '/link', { method: 'POST' }));
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function ctInvite() {
+  var email = prompt('Почта участника — на неё будет привязан кабинет:');
+  if (!email) return;
+  try {
+    ctShowLink(await api('/admin/contest/participants/invite', {
+      method: 'POST',
+      body: JSON.stringify({ email: email.trim(), send: true })
+    }));
+    loadContest();
+  } catch (e) {
+    alert(e.message);
   }
 }
 
@@ -1895,4 +1944,5 @@ async function ctExport() {
   if (ctq('ct-recount-btn')) ctq('ct-recount-btn').addEventListener('click', function () { ctFinalize(true); });
   if (ctq('ct-reopen-btn')) ctq('ct-reopen-btn').addEventListener('click', ctReopen);
   if (ctq('ct-export-btn')) ctq('ct-export-btn').addEventListener('click', ctExport);
+  if (ctq('ct-invite-btn')) ctq('ct-invite-btn').addEventListener('click', ctInvite);
 })();

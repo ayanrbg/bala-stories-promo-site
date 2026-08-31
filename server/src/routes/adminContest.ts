@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { authenticateToken, requireRole } from '../middleware/auth';
 import { fairyFetch } from '../lib/fairyProxy';
+import { issueInviteLink, sendInviteMail, mailConfigured } from '../lib/contestInvite';
 import {
   getContest,
   getStandings,
@@ -197,6 +198,51 @@ router.post('/participants/:id/restore', async (req: Request, res: Response): Pr
   });
   console.log(`[UGC-ADMIN] восстановлен ${p.email} (${p.code})`);
   res.json({ ok: true, participant: { id: p.id, disqualified: p.disqualified } });
+});
+
+// ─────────────────────────── ссылка для входа ───────────────────────────
+
+/**
+ * Выдать ссылку для входа тому, у кого не открывается Google. Ссылка
+ * одноразовая и живёт трое суток; выданная ранее сразу перестаёт работать.
+ * Отдаём её админу текстом, а не шлём письмом: почта на этой машине не
+ * настроена, а WhatsApp у поддержки под рукой всегда.
+ */
+router.post('/participants/invite', async (req: Request, res: Response): Promise<void> => {
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    res.status(400).json({ error: 'bad_email', message: 'Проверьте адрес' });
+    return;
+  }
+
+  const participant =
+    (await prisma.participant.findUnique({ where: { email } })) ||
+    (await prisma.participant.create({ data: { email, name: req.body?.name || null } }));
+
+  const link = await issueInviteLink(participant.id);
+  let mailed = false;
+  if (req.body?.send === true && mailConfigured()) {
+    try {
+      await sendInviteMail(email, link);
+      mailed = true;
+    } catch (e) {
+      console.error(`[UGC-ADMIN] письмо не ушло ${email}: ${(e as Error).message}`);
+    }
+  }
+
+  console.log(`[UGC-ADMIN] выдана ссылка для входа ${email}${mailed ? ' (письмом)' : ''}`);
+  res.json({ ok: true, email, mailed, mailAvailable: mailConfigured(), ...link });
+});
+
+router.post('/participants/:id/link', async (req: Request, res: Response): Promise<void> => {
+  const p = await prisma.participant.findUnique({ where: { id: String(req.params.id) } });
+  if (!p) {
+    res.status(404).json({ error: 'not_found' });
+    return;
+  }
+  const link = await issueInviteLink(p.id);
+  console.log(`[UGC-ADMIN] перевыдана ссылка для входа ${p.email}`);
+  res.json({ ok: true, email: p.email, mailAvailable: mailConfigured(), ...link });
 });
 
 // ─────────────────────────── разбор накрутки ───────────────────────────
