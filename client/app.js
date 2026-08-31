@@ -1730,9 +1730,11 @@ function ctRow(p) {
     ? '<span title="' + ctEsc(p.dqReason || '') + '">снят</span>'
     : (p.qualified ? 'да' : 'нет');
 
-  var action = p.disqualified
-    ? '<button class="btn btn-outline btn-sm" onclick="ctRestore(\'' + p.id + '\')">Вернуть</button>'
-    : '<button class="btn btn-outline btn-sm" onclick="ctDisqualify(\'' + p.id + '\')">Снять</button>';
+  var action =
+    (p.code ? '<button class="btn btn-outline btn-sm" onclick="ctActivity(\'' + p.id + '\')">Активность</button> ' : '') +
+    (p.disqualified
+      ? '<button class="btn btn-outline btn-sm" onclick="ctRestore(\'' + p.id + '\')">Вернуть</button>'
+      : '<button class="btn btn-outline btn-sm" onclick="ctDisqualify(\'' + p.id + '\')">Снять</button>');
 
   return '<tr' + (p.disqualified ? ' style="opacity:.55"' : '') + '>' +
     '<td>' + medal + place + '</td>' +
@@ -1791,6 +1793,49 @@ async function ctReopen() {
     loadContest();
   } catch (e) {
     ctq('ct-finalize-status').textContent = e.message;
+  }
+}
+
+// Разбор накрутки: активации по дням и по адресам. Приговора здесь нет и быть
+// не должно — у общежития или школы один внешний адрес на всех, и решать,
+// накрутка это или большая семья, может только человек.
+async function ctActivity(id) {
+  var box = ctq('ct-detail');
+  box.style.display = '';
+  box.innerHTML = '<p class="hint">Загружаем…</p>';
+  try {
+    var d = await api('/admin/contest/participants/' + id + '/activity');
+
+    var days = d.daily.length
+      ? '<table class="data-table"><thead><tr><th>День</th><th>Активаций</th></tr></thead><tbody>' +
+        d.daily.map(function (x) {
+          return '<tr><td>' + x.date + '</td><td>' + x.bindings + '</td></tr>';
+        }).join('') + '</tbody></table>'
+      : '<p class="hint">Активаций за период конкурса нет.</p>';
+
+    var ips = d.ipStats.topIps.length
+      ? '<table class="data-table"><thead><tr><th>Адрес</th><th>Активаций</th><th>Первая</th><th>Последняя</th></tr></thead><tbody>' +
+        d.ipStats.topIps.map(function (x) {
+          var alarm = x.count >= 5 ? ' style="color:#e06c6c;font-weight:600"' : '';
+          return '<tr' + alarm + '><td>' + ctEsc(x.ip) + '</td><td>' + x.count + '</td><td>' +
+                 ctFmtDate(x.firstAt) + '</td><td>' + ctFmtDate(x.lastAt) + '</td></tr>';
+        }).join('') + '</tbody></table>'
+      : '<p class="hint">Адресов нет: либо активаций нет, либо они старше, чем запись адресов (с 31.08.2026).</p>';
+
+    var unknown = d.bindings - d.ipStats.withIp;
+
+    box.innerHTML =
+      '<h3 class="section-title">Активность кода ' + ctEsc(d.code) +
+        (d.nickname ? ' <span class="hint">' + ctEsc(d.nickname) + '</span>' : '') + '</h3>' +
+      '<p class="hint">Всего активаций: ' + d.bindings +
+        ' · разных адресов: ' + d.ipStats.distinctIps +
+        (unknown > 0 ? ' · без адреса: ' + unknown : '') + '</p>' +
+      '<p class="hint">Много активаций с одного адреса — повод посмотреть внимательнее, ' +
+        'но не доказательство: у одного мобильного оператора или общежития адрес общий на многих.</p>' +
+      days + ips +
+      '<button class="btn btn-outline btn-sm" onclick="ctq(\'ct-detail\').style.display=\'none\'">Свернуть</button>';
+  } catch (e) {
+    box.innerHTML = '<p class="hint">Не удалось получить активность: ' + ctEsc(e.message) + '</p>';
   }
 }
 

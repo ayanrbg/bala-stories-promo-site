@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { authenticateToken, requireRole } from '../middleware/auth';
+import { fairyFetch } from '../lib/fairyProxy';
 import {
   getContest,
   getStandings,
@@ -196,6 +197,55 @@ router.post('/participants/:id/restore', async (req: Request, res: Response): Pr
   });
   console.log(`[UGC-ADMIN] восстановлен ${p.email} (${p.code})`);
   res.json({ ok: true, participant: { id: p.id, disqualified: p.disqualified } });
+});
+
+// ─────────────────────────── разбор накрутки ───────────────────────────
+
+// GET /api/admin/contest/participants/:id/activity — по дням и по адресам.
+// Отдаёт факты, а не приговор: у школы или общежития один внешний адрес на
+// всех, и автоматический вывод «накрутка» снял бы с конкурса честного человека.
+router.get('/participants/:id/activity', async (req: Request, res: Response): Promise<void> => {
+  const [contest, participant] = await Promise.all([
+    getContest(),
+    prisma.participant.findUnique({ where: { id: String(req.params.id) } }),
+  ]);
+
+  if (!contest || !participant) {
+    res.status(404).json({ error: 'not_found' });
+    return;
+  }
+  if (!participant.code) {
+    res.status(409).json({ error: 'no_code', message: 'У участника ещё нет промокода' });
+    return;
+  }
+
+  const from = contest.startsAt.toISOString();
+  const to = new Date(contest.endsAt.getTime() + 1000).toISOString();
+
+  try {
+    const detail = await fairyFetch<{
+      bindings: number;
+      daily: { date: string; bindings: number }[];
+      ipStats: { withIp: number; distinctIps: number; topIps: { ip: string; count: number; firstAt: string; lastAt: string }[] };
+    }>(
+      '/api/admin/referrals/code/' + encodeURIComponent(participant.code),
+      `?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+      'ugc-admin'
+    );
+
+    res.json({
+      code: participant.code,
+      nickname: participant.nickname,
+      bindings: detail.bindings,
+      daily: (detail.daily || []).filter((d) => d.bindings > 0),
+      // Старые связки писались без адреса — «не знаем» и «один адрес» это
+      // разное, поэтому показываем, у скольких активаций адрес вообще есть.
+      ipStats: detail.ipStats || { withIp: 0, distinctIps: 0, topIps: [] },
+    });
+  } catch (e) {
+    console.error(`[UGC-ADMIN] активность ${participant.code}: ${(e as Error).message}`);
+    res.status(502).json({ error: 'upstream_error', message: (e as Error).message });
+  }
 });
 
 // ─────────────────────────── выгрузка ───────────────────────────
