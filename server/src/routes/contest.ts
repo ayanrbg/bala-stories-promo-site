@@ -270,7 +270,7 @@ router.patch('/profile', requireParticipant, async (req: Request, res: Response)
   if (!instagram && !tiktok && !telegram && !youtube) {
     res.status(400).json({
       error: 'social_required',
-      message: 'Укажите хотя бы одну соцсеть — по ней мы вас найдём',
+      message: 'Напишите хотя бы один аккаунт',
     });
     return;
   }
