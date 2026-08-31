@@ -130,7 +130,9 @@ function renderStandings() {
   const card = $('rankCard');
   const min = s.minActivations;
 
-  if (me) {
+  // Место есть только с первой активацией: `rank: null` — это «ещё не начал»,
+  // и рисовать ему «1 место с нулём» было бы враньём.
+  if (me && me.rank) {
     $('rankMedal').textContent = medalFor(me.rank);
     $('rankPlace').textContent = s.finalized ? `Итог: ${me.rank} место` : `Вы на ${me.rank} месте`;
     $('myActs').textContent = nf.format(me.activations);
@@ -154,7 +156,7 @@ function renderStandings() {
     }
   } else {
     $('rankMedal').textContent = '🌱';
-    $('rankPlace').textContent = 'Активаций пока нет';
+    $('rankPlace').textContent = 'Место появится с первой активацией';
     $('myActs').textContent = '0';
     $('progressFill').style.width = '0%';
     $('progressText').textContent = `0 из ${min}`;
@@ -175,7 +177,7 @@ function renderStandings() {
 
   // Таблица. Наружу отдаются только места и цифры — имён здесь нет и не будет.
   const rows = s.top.slice();
-  if (me && !rows.some((r) => r.isMe)) rows.push(me);
+  if (me && me.rank && !rows.some((r) => r.isMe)) rows.push(me);
 
   const max = Math.max(1, ...rows.map((r) => r.activations));
   $('boardEmpty').hidden = rows.length > 0;

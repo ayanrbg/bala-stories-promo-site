@@ -35,7 +35,8 @@ export interface StandingRow {
   participantId: string;
   code: string;
   activations: number;
-  rank: number;
+  /** null = активаций нет, места ещё нет. Ноль — это не «последнее место». */
+  rank: number | null;
   qualified: boolean;
   prizeTier: number | null;
   prizeAmount: number | null;
@@ -141,10 +142,14 @@ export async function computeStandings(contest: Contest): Promise<StandingRow[]>
     return a.code.localeCompare(b.code);
   });
 
-  return rows.map((r, i) => {
-    const rank = i + 1;
+  // Место получает только тот, у кого есть хотя бы одна активация. Иначе
+  // первый зарегистрировавшийся увидел бы «вы на 1 месте» с нулём активаций —
+  // и решил бы, что сайт врёт. Ноль — это «места ещё нет», а не последнее место.
+  let place = 0;
+  return rows.map((r) => {
+    const rank = r.activations > 0 ? ++place : null;
     const qualified = r.activations >= contest.minActivations;
-    const prize = prizeFor(rank, qualified);
+    const prize = rank ? prizeFor(rank, qualified) : { tier: null, amount: null };
     return {
       participantId: r.participantId,
       code: r.code,
@@ -203,7 +208,10 @@ export async function finalize(force = false): Promise<{ ok: boolean; reason?: s
   if (Date.now() < contest.endsAt.getTime() && !force) return { ok: false, reason: 'not_ended' };
 
   dropActivationsCache();
-  const rows = await computeStandings(contest);
+  // В снимок попадают только те, у кого есть место. Строка «ноль активаций,
+  // места нет» ничего не фиксирует, а в таблице итогов выглядела бы как
+  // проигравший участник — хотя человек мог просто не начать.
+  const rows = (await computeStandings(contest)).filter((r) => r.rank !== null);
 
   await prisma.$transaction([
     prisma.contestResult.deleteMany({ where: { contestId: contest.id } }),
@@ -213,7 +221,7 @@ export async function finalize(force = false): Promise<{ ok: boolean; reason?: s
         participantId: r.participantId,
         code: r.code,
         activations: r.activations,
-        rank: r.rank,
+        rank: r.rank as number,
         qualified: r.qualified,
         prizeTier: r.prizeTier,
         prizeAmount: r.prizeAmount,

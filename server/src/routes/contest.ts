@@ -268,7 +268,9 @@ router.get('/standings', async (req: Request, res: Response): Promise<void> => {
       computedAt: standings.computedAt,
       minActivations: contest.minActivations,
       totalParticipants: standings.rows.length,
-      top: standings.rows.slice(0, TOP_LIMIT).map(strip),
+      // В таблице только те, у кого есть место: строка «0 активаций» ничего не
+      // говорит и лишь разбавляет рейтинг теми, кто ещё не начал.
+      top: standings.rows.filter((r) => r.rank !== null).slice(0, TOP_LIMIT).map(strip),
       me: mine
         ? {
             ...strip(mine),
