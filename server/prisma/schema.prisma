@@ -13,14 +13,15 @@ enum AppType {
 }
 
 model Blogger {
-  id           String     @id @default(uuid())
-  login        String     @unique
+  id           String      @id @default(uuid())
+  login        String      @unique
   passwordHash String
   name         String
-  promoCode    String     @unique
+  promoCode    String      @unique
   apps         AppType[]
-  createdAt    DateTime   @default(now())
+  createdAt    DateTime    @default(now())
   promoUses    PromoUse[]
+  talePromos   TalePromo[]
 }
 
 enum PromoAction {
@@ -35,7 +36,51 @@ model PromoUse {
   action          PromoAction
   app             AppType
   externalUserId  String?
+  // Транзакция магазина для событий, пришедших от Fairy (серверная атрибуция).
+  // Уникальность = дедуп: повторная нотификация Apple или ретрай доставки не
+  // задваивает награду блогеру. NULL у старых строк и у клиентского легаси —
+  // в Postgres NULL друг с другом не конфликтуют.
+  transactionId   String?     @unique
   createdAt       DateTime    @default(now())
+}
+
+/// Реферальный промокод блогера: открывает выбранный набор сказок и закрепляет
+/// человека за блогером. Код бесплатный — сказки здесь причина его ввести.
+model TalePromo {
+  id        String         @id @default(uuid())
+  code      String         @unique
+  taleIds   String[]       // слаги из каталога Fairy, выбранные галочками
+  blogger   Blogger?       @relation(fields: [bloggerId], references: [id])
+  bloggerId String?
+  app       AppType        @default(BALA_STORIES)
+  maxUses   Int?           // null = безлимит
+  useCount  Int            @default(0)
+  label     String?
+  createdAt DateTime       @default(now())
+  uses      TalePromoUse[]
+}
+
+/// Кто уже вводил этот код. Уникальность пары чинит разрыв между двумя базами:
+/// сайт погасил использование, Fairy упал — повторный ввод того же кода тем же
+/// человеком не тратит второе использование.
+model TalePromoUse {
+  id             String    @id @default(uuid())
+  promo          TalePromo @relation(fields: [promoId], references: [id], onDelete: Cascade)
+  promoId        String
+  externalUserId String
+  app            AppType
+  createdAt      DateTime  @default(now())
+
+  @@unique([promoId, externalUserId])
+}
+
+/// Правила награждения, по которым строится отчёт. Хранится решение, а не
+/// результат: смена окна с 30 на 90 дней пересчитывает все прошлые месяцы.
+model ReferralSettings {
+  id              String   @id @default("default")
+  attributionDays Int?     // null = бессрочно
+  showRenewals    Boolean  @default(false)
+  updatedAt       DateTime @updatedAt
 }
 
 model PremiumPromo {
@@ -49,4 +94,74 @@ model PremiumPromo {
   usedBy       String?
   usedAt       DateTime?
   createdAt    DateTime  @default(now())
+}
+
+// ─────────────────── Конкурс для авторов (UGC) ───────────────────
+// Кабинет участника: вход через Google, личный промокод, рейтинг по активациям.
+// Активации живут не здесь, а в Fairy (referral_bindings) — тут только коды,
+// участники и зафиксированные итоги.
+
+/// Сроки и порог — настройка, а не константа в коде: даты сдвигаются, и правка
+/// сроков не должна быть деплоем. finalizedAt проставлено = итоги заморожены.
+model Contest {
+  id             String    @id @default("ugc-2026-09")
+  title          String
+  startsAt       DateTime
+  endsAt         DateTime
+  minActivations Int       @default(30)
+  finalizedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  results        ContestResult[]
+}
+
+/// Участник живёт вне конкурса: код выдаётся один раз и не меняется, потому что
+/// его уже назвали в опубликованных видео. Привязка к конкретному конкурсу —
+/// это окно дат при подсчёте, а не колонка здесь.
+model Participant {
+  id           String    @id @default(uuid())
+  googleSub    String    @unique
+  email        String    @unique
+  name         String?
+  avatarUrl    String?
+
+  // Анкета. Код выдаётся при её сохранении, поэтому "вошёл, но не заполнил" —
+  // законное состояние, а не сбой.
+  nickname     String?
+  socialUrl    String?
+  phone        String?
+
+  code         String?   @unique
+  /// TalePromo, созданный под этот код: без него код не сработает в приложении.
+  talePromoId  String?   @unique
+
+  disqualified Boolean   @default(false)
+  dqReason     String?
+
+  createdAt    DateTime  @default(now())
+  codeIssuedAt DateTime?
+  lastSeenAt   DateTime  @default(now())
+
+  results      ContestResult[]
+}
+
+/// Снимок итогов. Отдельная таблица, потому что активации живут в чужой базе:
+/// связку может снять поддержка, и "зафиксированное" 7 место молча превратилось
+/// бы в 8-е. После фиксации страница читает отсюда и Fairy не спрашивает.
+model ContestResult {
+  contestId     String
+  participantId String
+  contest       Contest     @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  code          String
+  activations   Int
+  rank          Int
+  qualified     Boolean
+  prizeTier     Int?
+  prizeAmount   Int?
+  frozenAt      DateTime    @default(now())
+
+  @@id([contestId, participantId])
+  @@index([contestId, rank])
 }

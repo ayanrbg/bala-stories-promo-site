@@ -1,0 +1,79 @@
+/* Правовые страницы: политика конфиденциальности и условия использования.
+   Своя таблица стилей, а не blogers.css: там витрина с карточками и таблицей,
+   здесь — длинный текст, и общий файл однажды притащил бы сюда чужую вёрстку. */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0f0f14;
+  --bg-card: #1a1a24;
+  --border: #2d2d3d;
+  --text: #e4e4eb;
+  --text-muted: #8888a0;
+  --accent: #8b5cf6;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  /* Текст читают с телефона — длина строки и межстрочный интервал важнее сетки. */
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+.wrap { max-width: 720px; margin: 0 auto; padding: 0 20px; }
+
+.top {
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, #16161f, var(--bg));
+  padding: 28px 0 24px;
+  margin-bottom: 28px;
+}
+.top h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.25; }
+.sub { color: var(--text-muted); font-size: 14px; margin-top: 8px; }
+
+main { padding-bottom: 56px; }
+
+h2 {
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  margin: 32px 0 10px;
+}
+h2:first-child { margin-top: 0; }
+
+p { margin: 0 0 12px; }
+ul { margin: 0 0 12px; padding-left: 22px; }
+li { margin-bottom: 7px; }
+
+a { color: var(--accent); }
+
+strong { font-weight: 650; }
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin: 18px 0;
+}
+.card p:last-child { margin-bottom: 0; }
+
+.muted { color: var(--text-muted); font-size: 14px; }
+
+footer {
+  border-top: 1px solid var(--border);
+  padding: 22px 0 40px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+footer a { margin-right: 16px; }
+
+@media (max-width: 600px) {
+  body { font-size: 15.5px; }
+  .top h1 { font-size: 22px; }
+  h2 { font-size: 17.5px; margin-top: 28px; }
+}

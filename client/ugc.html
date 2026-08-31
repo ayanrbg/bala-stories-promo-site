@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0d0a1d">
+  <title>Мама UGC — розыгрыш 200 000 ₸ · Bala</title>
+  <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Manrope:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="ugc.css">
+</head>
+<body>
+  <div class="sky" aria-hidden="true"></div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <!-- Встроенные браузеры Instagram и TikTok блокируют вход через Google.
+       Плашка появляется только там, где это действительно так. -->
+  <div class="inapp" id="inapp" hidden>
+    <div class="inapp-card">
+      <span class="inapp-emoji">🌐</span>
+      <div>
+        <b>Откройте в браузере</b>
+        <p>Вход через Google не работает внутри Instagram и TikTok. Нажмите «…» вверху и выберите «Открыть в Safari / Chrome».</p>
+      </div>
+      <button class="btn btn-ghost" id="copyLink" type="button">Скопировать ссылку</button>
+    </div>
+  </div>
+
+  <header class="hero">
+    <p class="kicker">Bala · конкурс для авторов</p>
+    <h1>Мама<span class="hero-ugc">UGC</span></h1>
+    <p class="hero-prize"><span id="prizeFund">200 000</span> ₸ призовой фонд</p>
+
+    <div class="timer" id="timer">
+      <p class="timer-label" id="timerLabel">До окончания конкурса</p>
+      <div class="timer-tiles">
+        <div class="tile"><b id="tDays">—</b><span>дней</span></div>
+        <div class="tile"><b id="tHours">—</b><span>часов</span></div>
+        <div class="tile"><b id="tMins">—</b><span>минут</span></div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- ─────────── экран 1: условия ─────────── -->
+    <section class="screen" id="screenRules">
+      <div class="card reveal" style="--d:0ms">
+        <h2 class="card-title">Как участвовать</h2>
+        <ol class="steps">
+          <li><b>Снимите видео</b> с приложением Bala и расскажите про него своей аудитории.</li>
+          <li><b>Назовите свой промокод</b> — он у вас личный, его видно на вкладке «Мой результат».</li>
+          <li><b>Зритель вводит код</b> в приложении и получает сказки в подарок. Это и есть активация.</li>
+        </ol>
+      </div>
+
+      <div class="card reveal" style="--d:60ms">
+        <h2 class="card-title">Условие допуска</h2>
+        <p class="big-condition"><b id="minAct">30</b> активаций</p>
+        <p class="muted">Столько раз ваш код должен быть введён в приложении за время конкурса. Чем больше активаций — тем выше место.</p>
+      </div>
+
+      <div class="card card-prizes reveal" style="--d:120ms">
+        <h2 class="card-title">Призы</h2>
+        <ul class="prizes" id="prizes"></ul>
+        <p class="prize-total"><span>Всего победителей</span><b id="winnersTotal">16</b></p>
+      </div>
+
+      <div class="card reveal" style="--d:180ms">
+        <h2 class="card-title">Сроки</h2>
+        <p class="dates" id="dates">—</p>
+        <p class="muted">Считаются только активации внутри этих дат. После окончания места фиксируются и больше не меняются.</p>
+      </div>
+
+      <p class="legal reveal" style="--d:240ms">
+        Участвуя, вы соглашаетесь с <a href="/terms.html">условиями</a> и
+        <a href="/privacy.html">политикой конфиденциальности</a>.
+      </p>
+    </section>
+
+    <!-- ─────────── экран 2: мой результат ─────────── -->
+    <section class="screen" id="screenMe" hidden>
+      <!-- состояние A: не вошёл -->
+      <div class="state" id="stateLogin" hidden>
+        <div class="card card-login">
+          <span class="login-emoji">🎁</span>
+          <h2 class="card-title">Получите свой промокод</h2>
+          <p class="muted">Войдите через Google — это займёт пару секунд. Код выдаётся сразу после короткой анкеты.</p>
+          <div class="gbtn" id="gbtn"></div>
+          <p class="login-note" id="loginNote" hidden>Вход временно недоступен. Попробуйте позже.</p>
+        </div>
+      </div>
+
+      <!-- состояние B: вошёл, анкета не заполнена -->
+      <div class="state" id="stateForm" hidden>
+        <div class="card">
+          <h2 class="card-title">Ещё пара вопросов</h2>
+          <p class="muted">Нужны, чтобы связаться с вами и передать приз. Сразу после этого выдадим промокод.</p>
+          <form id="profileForm" novalidate>
+            <label class="field">
+              <span>Ник в соцсети</span>
+              <input id="fNickname" type="text" placeholder="@mama.blog" autocomplete="off" required>
+            </label>
+            <label class="field">
+              <span>Ссылка на профиль</span>
+              <input id="fSocial" type="url" inputmode="url" placeholder="https://instagram.com/mama.blog" required>
+            </label>
+            <label class="field">
+              <span>Телефон <i>для выплаты приза</i></span>
+              <input id="fPhone" type="tel" inputmode="tel" placeholder="+7 700 000 00 00">
+            </label>
+            <p class="form-error" id="formError" hidden></p>
+            <button class="btn btn-gold" id="formSubmit" type="submit">Получить промокод</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- состояние C: код есть -->
+      <div class="state" id="stateResult" hidden>
+        <div class="ticket reveal" style="--d:0ms">
+          <p class="ticket-label">Ваш промокод</p>
+          <button class="ticket-code" id="codeBtn" type="button" title="Нажмите, чтобы скопировать">
+            <span id="codeText">····</span>
+          </button>
+          <p class="ticket-hint" id="copyHint">нажмите, чтобы скопировать</p>
+        </div>
+
+        <div class="card card-rank reveal" style="--d:60ms" id="rankCard">
+          <div class="rank-main">
+            <span class="rank-medal" id="rankMedal">🏆</span>
+            <div>
+              <p class="rank-place" id="rankPlace">—</p>
+              <p class="rank-acts"><b id="myActs">0</b> активаций</p>
+            </div>
+          </div>
+          <div class="progress">
+            <div class="progress-bar"><i id="progressFill" style="width:0%"></i></div>
+            <p class="progress-legend"><span id="progressText">—</span><span class="muted" id="progressGoal"></span></p>
+          </div>
+          <p class="status" id="status">—</p>
+        </div>
+
+        <div class="card reveal" style="--d:120ms">
+          <h2 class="card-title">Рейтинг<span class="upd" id="updated"></span></h2>
+          <ul class="board" id="board"></ul>
+          <p class="board-empty muted" id="boardEmpty" hidden>Активаций пока нет ни у кого. Первое видео решает всё.</p>
+          <p class="board-note muted">Рейтинг анонимный: видно места и активации, но не имена.</p>
+        </div>
+
+        <p class="legal reveal" style="--d:180ms">
+          <button class="linklike" id="logout" type="button">Выйти</button>
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabs">
+    <button class="tab is-active" id="tabRules" type="button">Условия</button>
+    <button class="tab" id="tabMe" type="button">Мой результат</button>
+  </nav>
+
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="ugc.js"></script>
+</body>
+</html>
