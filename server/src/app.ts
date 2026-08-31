@@ -13,6 +13,7 @@ import logsRoutes from './routes/logs';
 import pushRoutes from './routes/push';
 import publicStatsRoutes from './routes/publicStats';
 import contestRoutes from './routes/contest';
+import adminContestRoutes from './routes/adminContest';
 
 const app = express();
 
@@ -28,6 +29,9 @@ app.use(express.static(path.join(__dirname, '../../client')));
 
 // API routes
 app.use('/api/auth', authRoutes);
+// Стоит выше общего /api/admin: свой файл, свой список участников, свои кнопки
+// фиксации — в admin.ts им нечего делать рядом с выдачей премиум-кодов.
+app.use('/api/admin/contest', adminContestRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/blogger', bloggerRoutes);
 app.use('/api/promo', promoRoutes);

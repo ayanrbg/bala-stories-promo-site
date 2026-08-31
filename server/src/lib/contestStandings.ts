@@ -54,7 +54,7 @@ export async function getContest(): Promise<Contest | null> {
 
 // ─────────────────────────── активации из Fairy ───────────────────────────
 
-interface FairyCodeRow {
+export interface FairyCodeRow {
   code: string;
   bindings: number;
   lastBindAt: string | null;
@@ -100,6 +100,14 @@ function activationsByCode(contest: Contest): Promise<Map<string, FairyCodeRow>>
 
 export function dropActivationsCache(): void {
   cache = null;
+}
+
+/**
+ * Сырые активации по кодам. Нужны админке: дисквалифицированных в рейтинге нет,
+ * но их цифры видеть надо — иначе непонятно, за что человека сняли.
+ */
+export function getActivationsMap(contest: Contest): Promise<Map<string, FairyCodeRow>> {
+  return activationsByCode(contest);
 }
 
 // ─────────────────────────── расчёт ───────────────────────────

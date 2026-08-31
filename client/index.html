@@ -37,9 +37,12 @@
         <button class="nav-btn active" data-tab="dashboard">Дашборд</button>
         <button class="nav-btn" data-tab="bloggers">Блогеры</button>
         <button class="nav-btn" data-tab="premium">Премиум промокоды</button>
+        <button class="nav-btn" data-tab="tale-promos">Промокоды на сказки</button>
         <button class="nav-btn" data-tab="catalog">Сказки</button>
         <button class="nav-btn" data-tab="analytics">Аналитика</button>
         <button class="nav-btn" data-tab="logs">Логи</button>
+        <button class="nav-btn" data-tab="push">Пуши</button>
+        <button class="nav-btn" data-tab="contest">Конкурс</button>
       </nav>
       <button id="logout-btn" class="btn btn-outline">Выйти</button>
     </header>
@@ -122,6 +125,70 @@
         <tbody id="premium-table-body"></tbody>
       </table>
     </div>
+
+    <!-- Tale promos Tab — реферальные коды блогеров: открывают сказки и закрепляют пользователя -->
+    <div id="tab-tale-promos" class="tab-content">
+      <div class="tab-header">
+        <h2>Промокоды на сказки <span class="hint">бесплатный код блогера: открывает сказки и закрепляет пользователя за ним</span></h2>
+      </div>
+
+      <div class="inline-form" style="margin-bottom:12px">
+        <input type="text" id="tp-label-input" placeholder="Метка (напр. Марат, март)" class="input-sm">
+        <input type="text" id="tp-code-input" placeholder="Код (авто)" class="input-sm">
+        <select id="tp-blogger-input" class="input-sm"></select>
+        <input type="number" id="tp-maxuses-input" placeholder="Лимит вводов (пусто = ∞)" min="1" class="input-sm">
+        <button id="tp-create-btn" class="btn btn-primary">Создать</button>
+        <button id="tp-refresh-btn" class="btn btn-outline">Обновить</button>
+      </div>
+
+      <p class="hint">Сказки к коду — галочками из каталога. Слаг руками не вводится: опечатка дала бы код, который «сработал», но ничего не открыл.</p>
+      <div id="tp-tales-picker" class="tp-picker"></div>
+
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Код</th>
+            <th>Метка</th>
+            <th>Блогер</th>
+            <th>Сказки</th>
+            <th>Вводов</th>
+            <th>Создан</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tale-promos-table-body"></tbody>
+      </table>
+
+      <h3 class="section-title">Настройки рефералки</h3>
+      <div class="inline-form">
+        <label class="checkbox-inline" title="Оплата засчитывается блогеру, если случилась не позже этого числа дней после ввода кода. Пусто — бессрочно.">
+          Окно атрибуции, дней:
+          <input type="number" id="rs-days-input" placeholder="пусто = бессрочно" min="0" class="input-sm">
+        </label>
+        <label class="checkbox-inline" title="Пока выключено, блогер видит только первые оплаты. Продления всё равно собираются.">
+          <input type="checkbox" id="rs-renewals-input"> Показывать продления
+        </label>
+        <button id="rs-save-btn" class="btn btn-primary">Сохранить</button>
+        <span id="rs-status" class="hint"></span>
+      </div>
+
+      <h3 class="section-title">Сводка по блогерам</h3>
+      <p class="hint">Считается по фактам оплат на стороне бэкенда, а не по тому, сходил ли клиент на сервер после покупки.</p>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Блогер</th>
+            <th>Закреплено</th>
+            <th>Первых оплат</th>
+            <th>Продлений</th>
+            <th>Засчитано</th>
+            <th>Конверсия</th>
+          </tr>
+        </thead>
+        <tbody id="referrals-table-body"></tbody>
+      </table>
+    </div>
+
     <!-- Catalog Tab -->
     <div id="tab-catalog" class="tab-content">
       <div class="tab-header">
@@ -262,6 +329,76 @@
 
       <div id="logs-list"></div>
     </div>
+    <!-- Push Tab (user push notifications via Fairy backend) -->
+    <div id="tab-push" class="tab-content">
+      <div class="tab-header">
+        <h2>Пуши <span class="hint">пуш-уведомления пользователям приложения</span></h2>
+        <div class="inline-form">
+          <button id="push-refresh-btn" class="btn btn-outline">Обновить</button>
+          <button id="push-new-btn" class="btn btn-primary">+ Новая кампания</button>
+        </div>
+      </div>
+      <p id="push-token-stats" class="hint"></p>
+      <table class="data-table">
+        <thead><tr>
+          <th>Название</th><th>Статус</th><th>Аудитория</th><th>Отправлено</th><th>Создана</th><th></th>
+        </tr></thead>
+        <tbody id="push-table-body"></tbody>
+      </table>
+    </div>
+
+    <!-- Конкурс для авторов: кабинет участника живёт на /ugc -->
+    <div id="tab-contest" class="tab-content">
+      <div class="tab-header">
+        <h2>Конкурс <span class="hint">кабинет авторов на /ugc: участники, активации, итоги</span></h2>
+        <div class="inline-form">
+          <button id="ct-refresh-btn" class="btn btn-outline">Обновить</button>
+          <button id="ct-export-btn" class="btn btn-outline">Выгрузить CSV</button>
+        </div>
+      </div>
+
+      <p id="ct-banner" class="hint"></p>
+
+      <div class="stats-grid" id="ct-totals"></div>
+
+      <h3 class="section-title">Сроки и порог</h3>
+      <p class="hint">Время алматинское. Смена сроков пересчитывает рейтинг целиком: активации хранятся фактами, а окно дат — это параметр отчёта, а не свойство строки.</p>
+      <div class="inline-form">
+        <label class="checkbox-inline">Начало <input type="datetime-local" id="ct-starts" class="input-sm"></label>
+        <label class="checkbox-inline">Конец <input type="datetime-local" id="ct-ends" class="input-sm"></label>
+        <label class="checkbox-inline">Порог активаций <input type="number" id="ct-min" min="1" class="input-sm" style="width:90px"></label>
+        <button id="ct-save-btn" class="btn btn-primary">Сохранить</button>
+        <span id="ct-status" class="hint"></span>
+      </div>
+
+      <h3 class="section-title">Итоги</h3>
+      <p class="hint">После окончания итоги фиксируются сами, таймером. Кнопки нужны для разбора накруток: дисквалификация двигает места только после пересчёта.</p>
+      <div class="inline-form">
+        <button id="ct-finalize-btn" class="btn btn-primary">Зафиксировать итоги</button>
+        <button id="ct-recount-btn" class="btn btn-outline">Пересчитать</button>
+        <button id="ct-reopen-btn" class="btn btn-outline">Снять фиксацию</button>
+        <span id="ct-finalize-status" class="hint"></span>
+      </div>
+
+      <h3 class="section-title">Участники</h3>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Место</th>
+            <th>Код</th>
+            <th>Активации</th>
+            <th>Допуск</th>
+            <th>Приз</th>
+            <th>Имя</th>
+            <th>Ник / ссылка</th>
+            <th>Контакты</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="ct-table-body"></tbody>
+      </table>
+      <p id="ct-empty" class="hint" style="display:none">Участников пока нет.</p>
+    </div>
   </div>
 
   <!-- Blogger Panel -->
@@ -299,6 +436,26 @@
         </div>
       </div>
       <div id="blogger-app-stats-section"></div>
+
+      <!-- Реферальные коды на сказки: считает бэкенд по фактам оплат -->
+      <div id="blogger-referrals-section" style="display:none">
+        <h3 class="section-title">Промокоды на сказки <span class="hint">оплаты засчитаны сервером</span></h3>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-value" id="blogger-ref-bindings">0</span>
+            <span class="stat-label">Закреплено пользователей</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value" id="blogger-ref-counted">0</span>
+            <span class="stat-label">Оплат засчитано</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value" id="blogger-ref-conversion">0%</span>
+            <span class="stat-label">Конверсия</span>
+          </div>
+        </div>
+        <p class="hint" id="blogger-ref-note"></p>
+      </div>
 
       <div class="chart-container">
         <h3>Статистика за 30 дней</h3>
@@ -453,6 +610,126 @@
             <div id="an-tale-dwell" class="bar-list"></div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Push campaign composer -->
+  <div id="push-modal-overlay" class="modal-overlay">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h3 id="push-modal-title">Новая пуш-кампания</h3>
+        <button id="push-modal-close" class="btn btn-icon">✕</button>
+      </div>
+      <div class="tale-modal-body">
+        <div class="form-group">
+          <label>Название (внутреннее, пользователь не видит)</label>
+          <input type="text" id="push-title" placeholder="Напр. Реактивация: не заходил 3 дня">
+        </div>
+
+        <h4>Текст пуша по языкам</h4>
+        <p class="hint">Подставляется по языку пользователя. Незаполненные языки получат текст языка по умолчанию (радио справа).</p>
+        <div class="push-langs">
+          <div class="push-lang-row">
+            <span class="push-lang-tag">ru</span>
+            <input type="text" id="push-ru-title" class="input-sm push-l-title" placeholder="Заголовок">
+            <input type="text" id="push-ru-body" class="push-l-body" placeholder="Текст сообщения">
+            <label class="checkbox-label"><input type="radio" name="push-default" value="ru" checked> по умолч.</label>
+          </div>
+          <div class="push-lang-row">
+            <span class="push-lang-tag">kz</span>
+            <input type="text" id="push-kz-title" class="input-sm push-l-title" placeholder="Тақырып">
+            <input type="text" id="push-kz-body" class="push-l-body" placeholder="Хабарлама мәтіні">
+            <label class="checkbox-label"><input type="radio" name="push-default" value="kz"> по умолч.</label>
+          </div>
+          <div class="push-lang-row">
+            <span class="push-lang-tag">en</span>
+            <input type="text" id="push-en-title" class="input-sm push-l-title" placeholder="Title">
+            <input type="text" id="push-en-body" class="push-l-body" placeholder="Message body">
+            <label class="checkbox-label"><input type="radio" name="push-default" value="en"> по умолч.</label>
+          </div>
+          <div class="push-lang-row">
+            <span class="push-lang-tag">uz</span>
+            <input type="text" id="push-uz-title" class="input-sm push-l-title" placeholder="Sarlavha">
+            <input type="text" id="push-uz-body" class="push-l-body" placeholder="Xabar matni">
+            <label class="checkbox-label"><input type="radio" name="push-default" value="uz"> по умолч.</label>
+          </div>
+        </div>
+
+        <h4>Куда ведёт тап</h4>
+        <div class="inline-form">
+          <select id="push-dl-type" class="input-sm">
+            <option value="home">Открыть приложение</option>
+            <option value="tale">Сказка</option>
+            <option value="paywall">Пейволл (подписка)</option>
+            <option value="url">Ссылка</option>
+          </select>
+          <select id="push-dl-tale" class="input-sm" style="display:none"></select>
+          <input type="text" id="push-dl-url" class="input-sm" placeholder="https://…" style="display:none">
+        </div>
+
+        <h4>Кому отправить (сегмент)</h4>
+        <div class="push-segment">
+          <div class="inline-form">
+            <label>Подписка</label>
+            <select id="push-seg-premium" class="input-sm">
+              <option value="">Все</option>
+              <option value="paid">Платящие</option>
+              <option value="free">Бесплатные</option>
+            </select>
+            <label>Пол ребёнка</label>
+            <select id="push-seg-gender" class="input-sm">
+              <option value="">Любой</option>
+              <option value="boy">Мальчик</option>
+              <option value="girl">Девочка</option>
+            </select>
+          </div>
+          <div class="inline-form">
+            <label>Языки</label>
+            <label class="checkbox-label"><input type="checkbox" class="push-seg-lang" value="ru"> ru</label>
+            <label class="checkbox-label"><input type="checkbox" class="push-seg-lang" value="kz"> kz</label>
+            <label class="checkbox-label"><input type="checkbox" class="push-seg-lang" value="en"> en</label>
+            <label class="checkbox-label"><input type="checkbox" class="push-seg-lang" value="uz"> uz</label>
+            <span class="push-seg-sep">·</span>
+            <label>Платформы</label>
+            <label class="checkbox-label"><input type="checkbox" class="push-seg-plat" value="ios"> iOS</label>
+            <label class="checkbox-label"><input type="checkbox" class="push-seg-plat" value="android"> Android</label>
+          </div>
+          <div class="inline-form">
+            <label>Не заходил (дней)</label>
+            <input type="number" id="push-seg-inactive" class="input-sm push-seg-days" min="1" placeholder="напр. 3">
+            <label class="checkbox-label"><input type="checkbox" id="push-seg-adv-tale"> фильтр по сказке</label>
+            <select id="push-seg-tale" class="input-sm" style="display:none"></select>
+            <select id="push-seg-tale-read" class="input-sm" style="display:none">
+              <option value="false">не прочитал</option>
+              <option value="true">прочитал</option>
+            </select>
+          </div>
+          <div class="inline-form">
+            <label>Один пользователь (userId)</label>
+            <input type="text" id="push-seg-user" class="input-sm push-seg-user" placeholder="переопределяет весь сегмент">
+          </div>
+        </div>
+
+        <div class="inline-form" style="margin-top:10px">
+          <button id="push-preview-btn" class="btn btn-outline">Показать охват</button>
+          <span id="push-preview-result" class="hint"></span>
+        </div>
+
+        <hr>
+        <h4>Тест на себя <span class="hint">прилетит настоящий пуш на устройство этого userId</span></h4>
+        <div class="inline-form">
+          <input type="text" id="push-test-user" class="input-sm" placeholder="твой userId">
+          <button id="push-test-btn" class="btn btn-sm">Отправить тест</button>
+          <span id="push-test-result" class="hint"></span>
+        </div>
+
+        <hr>
+        <div class="inline-form">
+          <button id="push-save-draft" class="btn btn-outline">Сохранить черновик</button>
+          <button id="push-send-now" class="btn btn-primary">Отправить сейчас</button>
+        </div>
+        <p id="push-msg" class="error-text"></p>
       </div>
     </div>
   </div>
