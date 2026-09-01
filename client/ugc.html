@@ -21,24 +21,31 @@
     <div class="inapp-card">
       <span class="inapp-emoji">🌐</span>
       <div>
-        <b>Откройте в браузере</b>
-        <p>Вход через Google не работает внутри Instagram и TikTok. Нажмите «…» вверху и выберите «Открыть в Safari / Chrome».</p>
+        <b data-i18n="inapp.title">Откройте в браузере</b>
+        <p data-i18n="inapp.text">Вход через Google не работает внутри Instagram и TikTok. Нажмите «…» вверху и выберите «Открыть в Safari / Chrome».</p>
       </div>
-      <button class="btn btn-ghost" id="copyLink" type="button">Скопировать ссылку</button>
+      <button class="btn btn-ghost" id="copyLink" type="button" data-i18n="inapp.copy">Скопировать ссылку</button>
     </div>
   </div>
 
   <header class="hero">
-    <p class="kicker">Bala · конкурс для авторов</p>
+    <!-- Переключатель языка в шапке, а не в настройках: человек, открывший
+         страницу не на своём языке, должен увидеть выход сразу. -->
+    <div class="lang" id="lang">
+      <button class="lang-btn" type="button" data-lang="ru">RUS</button>
+      <button class="lang-btn" type="button" data-lang="kk">KAZ</button>
+    </div>
+
+    <p class="kicker" data-i18n="hero.kicker">Bala · конкурс для авторов</p>
     <h1>Мама<span class="hero-ugc">UGC</span></h1>
-    <p class="hero-prize"><span id="prizeFund">200 000</span> ₸ призовой фонд</p>
+    <p class="hero-prize"><span id="prizeFund">200 000</span> ₸ <span data-i18n="hero.prize">призовой фонд</span></p>
 
     <div class="timer" id="timer">
-      <p class="timer-label" id="timerLabel">До окончания конкурса</p>
+      <p class="timer-label" id="timerLabel">&nbsp;</p>
       <div class="timer-tiles">
-        <div class="tile"><b id="tDays">—</b><span>дней</span></div>
-        <div class="tile"><b id="tHours">—</b><span>часов</span></div>
-        <div class="tile"><b id="tMins">—</b><span>минут</span></div>
+        <div class="tile"><b id="tDays">—</b><span data-i18n="timer.days">дней</span></div>
+        <div class="tile"><b id="tHours">—</b><span data-i18n="timer.hours">часов</span></div>
+        <div class="tile"><b id="tMins">—</b><span data-i18n="timer.mins">минут</span></div>
       </div>
     </div>
   </header>
@@ -47,56 +54,56 @@
     <!-- ─────────── экран 1: условия ─────────── -->
     <section class="screen" id="screenRules">
       <div class="card reveal" style="--d:0ms">
-        <h2 class="card-title">Как участвовать</h2>
+        <h2 class="card-title" data-i18n="rules.how.title">Как участвовать</h2>
         <ol class="steps">
-          <li><b>Снимите видео</b> с приложением Bala и расскажите про него своей аудитории.</li>
-          <li><b>Назовите свой промокод</b> — он у вас личный, его видно на вкладке «Мой профиль».</li>
-          <li><b>Зритель вводит код</b> в приложении и получает сказки в подарок. Это и есть активация.</li>
+          <li data-i18n="rules.how.1"><b>Снимите видео</b> с приложением Bala и расскажите про него своей аудитории.</li>
+          <li data-i18n="rules.how.2"><b>Назовите свой промокод</b> — он у вас личный, его видно на вкладке «Мой профиль».</li>
+          <li data-i18n="rules.how.3"><b>Зритель вводит код</b> в приложении и получает сказки в подарок. Это и есть активация.</li>
         </ol>
       </div>
 
       <div class="card reveal" style="--d:60ms">
-        <h2 class="card-title">Условие допуска</h2>
-        <p class="big-condition"><b id="minAct">30</b> активаций</p>
-        <p class="muted">Столько раз ваш код должен быть введён в приложении за время конкурса. Чем больше активаций — тем выше место.</p>
+        <h2 class="card-title" data-i18n="rules.cond.title">Условие допуска</h2>
+        <p class="big-condition"><b id="minAct">30</b> <span data-i18n="rules.cond.acts">активаций</span></p>
+        <p class="muted" data-i18n="rules.cond.note">Столько раз ваш код должен быть введён в приложении за время конкурса. Чем больше активаций — тем выше место.</p>
       </div>
 
       <div class="card card-prizes reveal" style="--d:120ms">
-        <h2 class="card-title">Призы</h2>
+        <h2 class="card-title" data-i18n="rules.prizes.title">Призы</h2>
         <ul class="prizes" id="prizes"></ul>
-        <p class="prize-total"><span>Всего победителей</span><b id="winnersTotal">16</b></p>
+        <p class="prize-total"><span data-i18n="rules.prizes.total">Всего победителей</span><b id="winnersTotal">16</b></p>
       </div>
 
       <div class="card reveal" style="--d:180ms">
-        <h2 class="card-title">Сроки</h2>
+        <h2 class="card-title" data-i18n="rules.dates.title">Сроки</h2>
         <p class="dates" id="dates">—</p>
-        <p class="muted">Считаются только активации внутри этих дат. После окончания места фиксируются и больше не меняются.</p>
+        <p class="muted" data-i18n="rules.dates.note">Считаются только активации внутри этих дат. После окончания места фиксируются и больше не меняются.</p>
       </div>
 
-      <p class="legal reveal" style="--d:240ms">
+      <p class="legal reveal" style="--d:240ms" data-i18n="legal.agree">
         Участвуя, вы соглашаетесь с <a href="/terms.html">условиями</a> и
         <a href="/privacy.html">политикой конфиденциальности</a>.
       </p>
     </section>
 
-    <!-- ─────────── экран 2: мой результат ─────────── -->
+    <!-- ─────────── экран 2: мой профиль ─────────── -->
     <section class="screen" id="screenMe" hidden>
       <!-- состояние A: не вошёл -->
       <div class="state" id="stateLogin" hidden>
         <div class="card card-login">
           <span class="login-emoji">🎁</span>
-          <h2 class="card-title">Получите свой промокод</h2>
-          <p class="muted">Войдите через Google — это займёт пару секунд. Код выдаётся сразу после короткой анкеты.</p>
+          <h2 class="card-title" data-i18n="login.title">Получите свой промокод</h2>
+          <p class="muted" data-i18n="login.note">Войдите через Google — это займёт пару секунд. Код выдаётся сразу после короткой анкеты.</p>
           <div class="gbtn" id="gbtn"></div>
-          <p class="login-note" id="loginNote" hidden>Вход временно недоступен. Попробуйте позже.</p>
+          <p class="login-note" id="loginNote" hidden></p>
 
           <!-- Запасной путь: показывается, только если почта настроена на сервере.
                Обещать то, чего сервер не умеет, хуже, чем не предлагать вовсе. -->
           <div class="magic" id="magicBox" hidden>
-            <p class="magic-or">или войдите по ссылке на почту</p>
+            <p class="magic-or" data-i18n="magic.or">или войдите по ссылке на почту</p>
             <div class="magic-row">
-              <input type="email" id="magicEmail" inputmode="email" placeholder="ваша почта" autocomplete="email">
-              <button class="btn btn-ghost" id="magicSend" type="button">Прислать</button>
+              <input type="email" id="magicEmail" inputmode="email" data-i18n-ph="magic.ph" placeholder="ваша почта" autocomplete="email">
+              <button class="btn btn-ghost" id="magicSend" type="button" data-i18n="magic.send">Прислать</button>
             </div>
             <p class="magic-note" id="magicNote" hidden></p>
           </div>
@@ -106,9 +113,8 @@
       <!-- состояние B: вошёл, анкета не заполнена -->
       <div class="state" id="stateForm" hidden>
         <div class="card">
-          <h2 class="card-title">Ваши аккаунты</h2>
-          <p class="muted">Напишите свои аккаунты — <b>достаточно одного</b>. Заполняйте только те сети,
-          где вы снимаете.</p>
+          <h2 class="card-title" data-i18n="form.title">Ваши аккаунты</h2>
+          <p class="muted" data-i18n="form.note">Напишите свои аккаунты — <b>достаточно одного</b>. Заполняйте только те сети, где вы снимаете.</p>
           <form id="profileForm" novalidate>
             <div class="socials">
               <label class="sf">
@@ -153,17 +159,18 @@
                     <path d="M10.4 9.4 15.2 12l-4.8 2.6V9.4z" fill="currentColor" stroke="none"/>
                   </svg>
                 </span>
-                <input id="fYoutube" type="text" inputmode="url" placeholder="Ссылка на канал YouTube"
+                <input id="fYoutube" type="text" inputmode="url" data-i18n-ph="form.ytPh"
+                       placeholder="Ссылка на канал YouTube"
                        autocomplete="off" autocapitalize="none" spellcheck="false">
               </label>
             </div>
 
             <label class="field">
-              <span>Телефон для связи</span>
+              <span data-i18n="form.phone">Телефон для связи</span>
               <input id="fPhone" type="tel" inputmode="tel" placeholder="+7 700 000 00 00" required>
             </label>
             <p class="form-error" id="formError" hidden></p>
-            <button class="btn btn-gold" id="formSubmit" type="submit">Получить промокод</button>
+            <button class="btn btn-gold" id="formSubmit" type="submit" data-i18n="form.submit">Получить промокод</button>
           </form>
         </div>
       </div>
@@ -171,11 +178,11 @@
       <!-- состояние C: код есть -->
       <div class="state" id="stateResult" hidden>
         <div class="ticket reveal" style="--d:0ms">
-          <p class="ticket-label">Ваш промокод</p>
-          <button class="ticket-code" id="codeBtn" type="button" title="Нажмите, чтобы скопировать">
+          <p class="ticket-label" data-i18n="ticket.label">Ваш промокод</p>
+          <button class="ticket-code" id="codeBtn" type="button">
             <span id="codeText">····</span>
           </button>
-          <p class="ticket-hint" id="copyHint">нажмите, чтобы скопировать</p>
+          <p class="ticket-hint" id="copyHint" data-i18n="ticket.hint">нажмите, чтобы скопировать</p>
         </div>
 
         <div class="card card-rank reveal" style="--d:60ms" id="rankCard">
@@ -183,7 +190,7 @@
             <span class="rank-medal" id="rankMedal">🏆</span>
             <div>
               <p class="rank-place" id="rankPlace">—</p>
-              <p class="rank-acts"><b id="myActs">0</b> активаций</p>
+              <p class="rank-acts"><b id="myActs">0</b> <span data-i18n="rank.acts">активаций</span></p>
             </div>
           </div>
           <div class="progress">
@@ -194,26 +201,27 @@
         </div>
 
         <div class="card reveal" style="--d:120ms">
-          <h2 class="card-title">Рейтинг<span class="upd" id="updated"></span></h2>
+          <h2 class="card-title"><span data-i18n="board.title">Рейтинг</span><span class="upd" id="updated"></span></h2>
           <ul class="board" id="board"></ul>
-          <p class="board-empty muted" id="boardEmpty" hidden>Активаций пока нет ни у кого. Первое видео решает всё.</p>
-          <p class="board-note muted">Рейтинг анонимный: видно места и активации, но не имена.</p>
+          <p class="board-empty muted" id="boardEmpty" hidden data-i18n="board.empty">Активаций пока нет ни у кого. Первое видео решает всё.</p>
+          <p class="board-note muted" data-i18n="board.note">Рейтинг анонимный: видно места и активации, но не имена.</p>
         </div>
 
         <p class="legal reveal" style="--d:180ms">
-          <button class="linklike" id="editContacts" type="button">Изменить контакты</button>
-          <button class="linklike" id="logout" type="button">Выйти</button>
+          <button class="linklike" id="editContacts" type="button" data-i18n="actions.edit">Изменить контакты</button>
+          <button class="linklike" id="logout" type="button" data-i18n="actions.logout">Выйти</button>
         </p>
       </div>
     </section>
   </main>
 
   <nav class="tabs">
-    <button class="tab is-active" id="tabRules" type="button">Условия</button>
-    <button class="tab" id="tabMe" type="button">Мой профиль</button>
+    <button class="tab is-active" id="tabRules" type="button" data-i18n="tabs.rules">Условия</button>
+    <button class="tab" id="tabMe" type="button" data-i18n="tabs.me">Мой профиль</button>
   </nav>
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="ugc.i18n.js"></script>
   <script src="ugc.js"></script>
 </body>
 </html>

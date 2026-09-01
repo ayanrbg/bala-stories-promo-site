@@ -68,10 +68,44 @@ body {
 /* ── шапка ── */
 
 .hero {
+  position: relative;
   max-width: 460px;
   margin: 0 auto;
   padding: 40px 22px 26px;
   text-align: center;
+}
+
+/* ── переключатель языка ── */
+
+.lang {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 99px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.1);
+}
+.lang-btn {
+  min-width: 46px;
+  min-height: 30px;          /* вместе с полем .lang даёт комфортную цель тапа */
+  padding: 0 10px;
+  border: none;
+  border-radius: 99px;
+  background: none;
+  color: var(--muted);
+  font-family: 'Manrope', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  cursor: pointer;
+  transition: background .18s, color .18s;
+}
+.lang-btn.is-active {
+  background: rgba(245,192,78,.18);
+  color: var(--gold-soft);
 }
 
 .kicker {

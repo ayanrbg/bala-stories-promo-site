@@ -1,8 +1,11 @@
 /* Кабинет участника UGC-конкурса.
  *
- * Одна страница на два экрана: переход между «Условиями» и «Моим результатом»
+ * Одна страница на два экрана: переход между «Условиями» и «Моим профилем»
  * не перезагружает документ — сессия не должна зависеть даже от теоретической
  * возможности потерять куку на переходе.
+ *
+ * Язык переключается без перезагрузки: строки лежат в ugc.i18n.js, разметка
+ * помечена data-i18n, а всё посчитанное перерисовывается заново.
  */
 
 const $ = (id) => document.getElementById(id);
@@ -14,6 +17,52 @@ const state = {
   timeOffset: 0,     // серверное время минус часы телефона
   editing: false,    // открыта анкета, хотя код уже выдан
 };
+
+// ─────────────────────────── язык ───────────────────────────
+
+const LANGS = ['ru', 'kk'];
+
+function detectLang() {
+  const saved = localStorage.getItem('ugc_lang');
+  if (LANGS.includes(saved)) return saved;
+  const nav = (navigator.languages || [navigator.language || '']).join(',').toLowerCase();
+  return nav.includes('kk') ? 'kk' : 'ru';
+}
+
+let lang = detectLang();
+
+/** Недостающий ключ возвращает сам себя: пропущенный перевод видно сразу. */
+function t(key, vars) {
+  const dict = window.I18N[lang] || window.I18N.ru;
+  let s = dict[key] || window.I18N.ru[key] || key;
+  if (vars) for (const k of Object.keys(vars)) s = s.split('{' + k + '}').join(vars[k]);
+  return s;
+}
+
+const locale = () => (lang === 'kk' ? 'kk-KZ' : 'ru-RU');
+
+function setLang(next) {
+  if (!LANGS.includes(next) || next === lang) return;
+  lang = next;
+  localStorage.setItem('ugc_lang', next);
+  applyI18n();
+}
+
+function applyI18n() {
+  document.documentElement.lang = lang;
+
+  for (const el of document.querySelectorAll('[data-i18n]')) el.innerHTML = t(el.dataset.i18n);
+  for (const el of document.querySelectorAll('[data-i18n-ph]')) el.placeholder = t(el.dataset.i18nPh);
+  for (const b of document.querySelectorAll('.lang-btn')) {
+    b.classList.toggle('is-active', b.dataset.lang === lang);
+  }
+
+  // Всё посчитанное собирается заново: подписи там вперемешку с цифрами.
+  if (state.info) renderInfo(state.info);
+  tickTimer();
+  if (state.me) renderMe();
+  if (googleClientId && !$('stateLogin').hidden) renderGoogleButton();
+}
 
 // ─────────────────────────── сеть ───────────────────────────
 
@@ -34,11 +83,23 @@ async function api(path, options = {}) {
   return data;
 }
 
+/**
+ * Текст ошибки берём по машинному коду, а не из ответа: сервер отвечает
+ * по-русски, а страница может быть на казахском.
+ */
+function errText(e, fallbackKey) {
+  const code = e && e.data && e.data.error;
+  const dict = window.I18N[lang] || window.I18N.ru;
+  if (code && dict['err.' + code]) return t('err.' + code);
+  if (e && e.data && e.data.message) return e.data.message;
+  return t(fallbackKey);
+}
+
 // ─────────────────────────── формат ───────────────────────────
 
-const nf = new Intl.NumberFormat('ru-RU');
+const num = (n) => new Intl.NumberFormat(locale()).format(n);
 
-function plural(n, one, few, many) {
+function pluralRu(n, one, few, many) {
   const a = Math.abs(n) % 100, b = a % 10;
   if (a > 10 && a < 20) return many;
   if (b > 1 && b < 5) return few;
@@ -46,10 +107,14 @@ function plural(n, one, few, many) {
   return many;
 }
 
-const acts = (n) => `${nf.format(n)} ${plural(n, 'активация', 'активации', 'активаций')}`;
+/** В казахском после числительного существительное не меняется. */
+function acts(n) {
+  if (lang === 'kk') return `${num(n)} ${t('rank.acts')}`;
+  return `${num(n)} ${pluralRu(n, 'активация', 'активации', 'активаций')}`;
+}
 
-function dateRu(iso) {
-  return new Date(iso).toLocaleDateString('ru-RU', {
+function dateLong(iso) {
+  return new Date(iso).toLocaleDateString(locale(), {
     day: 'numeric', month: 'long', timeZone: 'Asia/Almaty',
   });
 }
@@ -62,20 +127,19 @@ function tickTimer() {
   if (!state.info) return;
   const start = Date.parse(state.info.startsAt);
   const end = Date.parse(state.info.endsAt);
-  const t = now();
+  const time = now();
 
   let target, label;
-  if (t < start) { target = start; label = 'До старта конкурса'; }
-  else if (t < end) { target = end; label = 'До окончания конкурса'; }
+  if (time < start) { target = start; label = t('timer.toStart'); }
+  else if (time < end) { target = end; label = t('timer.toEnd'); }
   else {
-    $('timerLabel').textContent = 'Конкурс завершён';
+    $('timerLabel').textContent = t('timer.over');
     $('timer').classList.add('is-over');
     $('tDays').textContent = $('tHours').textContent = $('tMins').textContent = '0';
     return;
   }
 
-  const left = Math.max(0, target - t);
-  const mins = Math.floor(left / 60000);
+  const mins = Math.floor(Math.max(0, target - time) / 60000);
   $('timerLabel').textContent = label;
   $('tDays').textContent = Math.floor(mins / 1440);
   $('tHours').textContent = Math.floor((mins % 1440) / 60);
@@ -85,23 +149,25 @@ function tickTimer() {
 // ─────────────────────────── экран условий ───────────────────────────
 
 function renderInfo(info) {
-  $('prizeFund').textContent = nf.format(info.prizeFund);
+  $('prizeFund').textContent = num(info.prizeFund);
   $('minAct').textContent = info.minActivations;
   $('winnersTotal').textContent = info.winnersTotal;
-  $('dates').textContent = `${dateRu(info.startsAt)} — ${dateRu(info.endsAt)}`;
+  $('dates').textContent = `${dateLong(info.startsAt)} — ${dateLong(info.endsAt)}`;
 
+  // Подписи мест собираем сами: сервер отдаёт их по-русски, а страница может
+  // быть на казахском. Порядок призов при этом задаёт всё равно сервер.
   const medals = ['🥇', '🥈', '🥉'];
   $('prizes').innerHTML = info.prizes.map((p, i) => `
     <li>
       <span class="medal">${medals[i] || '🎁'}</span>
-      <span class="place">${p.place}
-        <span class="who">${p.winners > 1 ? `${p.winners} победителей × ${nf.format(p.amount)} ₸` : 'один победитель'}</span>
+      <span class="place">${t('prizes.place' + (i + 1))}
+        <span class="who">${p.winners > 1 ? t('prizes.many', { n: p.winners, sum: num(p.amount) }) : t('prizes.one')}</span>
       </span>
-      <span class="amount">${nf.format(p.amount)} ₸</span>
+      <span class="amount">${num(p.amount)} ₸</span>
     </li>`).join('');
 }
 
-// ─────────────────────────── экран результата ───────────────────────────
+// ─────────────────────────── экран профиля ───────────────────────────
 
 function showState(which) {
   for (const id of ['stateLogin', 'stateForm', 'stateResult']) {
@@ -117,7 +183,7 @@ function fillForm() {
   $('fYoutube').value = p.youtube || '';
   $('fPhone').value = p.phone || '';
   // Код уже выдан — значит человек пришёл поправить контакты, а не получить код.
-  $('formSubmit').textContent = p.code ? 'Сохранить' : 'Получить промокод';
+  $('formSubmit').textContent = p.code ? t('form.save') : t('form.submit');
 }
 
 function renderMe() {
@@ -140,49 +206,49 @@ function renderStandings() {
   const me = s.me;
   const card = $('rankCard');
   const min = s.minActivations;
+  const st = $('status');
 
   // Место есть только с первой активацией: `rank: null` — это «ещё не начал»,
   // и рисовать ему «1 место с нулём» было бы враньём.
   if (me && me.rank) {
     $('rankMedal').textContent = medalFor(me.rank);
-    $('rankPlace').textContent = s.finalized ? `Итог: ${me.rank} место` : `Вы на ${me.rank} месте`;
-    $('myActs').textContent = nf.format(me.activations);
+    $('rankPlace').textContent = s.finalized
+      ? t('rank.final', { n: me.rank })
+      : t('rank.place', { n: me.rank });
+    $('myActs').textContent = num(me.activations);
 
-    const pct = Math.min(100, Math.round((me.activations / min) * 100));
-    $('progressFill').style.width = pct + '%';
-    $('progressText').textContent = `${nf.format(me.activations)} из ${min}`;
-    $('progressGoal').textContent = 'минимум для участия';
+    $('progressFill').style.width = Math.min(100, Math.round((me.activations / min) * 100)) + '%';
+    $('progressText').textContent = t('rank.of', { n: num(me.activations), min });
+    $('progressGoal').textContent = t('rank.goal');
 
     card.classList.toggle('is-done', me.qualified);
-    const st = $('status');
     if (me.qualified) {
       st.className = 'status good';
       st.innerHTML = me.prizeAmount
-        ? `🟢 Условие выполнено. При текущем месте ваш приз — <b>${nf.format(me.prizeAmount)} ₸</b>.`
-        : '🟢 Условие выполнено — вы участвуете в конкурсе. Призовые места: с 1 по 16.';
+        ? t('status.goodPrize', { sum: num(me.prizeAmount) })
+        : t('status.good');
     } else {
       st.className = 'status bad';
-      const left = me.remaining;
-      st.innerHTML = `🔴 Условие не выполнено. Осталось <b>${acts(left)}</b> до допуска.`;
+      st.innerHTML = t('status.bad', { acts: acts(me.remaining) });
     }
   } else {
     $('rankMedal').textContent = '🌱';
-    $('rankPlace').textContent = 'Место появится с первой активацией';
+    $('rankPlace').textContent = t('rank.none');
     $('myActs').textContent = '0';
     $('progressFill').style.width = '0%';
-    $('progressText').textContent = `0 из ${min}`;
-    $('progressGoal').textContent = 'минимум для участия';
+    $('progressText').textContent = t('rank.of', { n: 0, min });
+    $('progressGoal').textContent = t('rank.goal');
     card.classList.remove('is-done');
-    const st = $('status');
     st.className = 'status bad';
+
     if (state.me && state.me.disqualified) {
       // Молчать нельзя: иначе человек видит ноль активаций и идёт в поддержку
       // выяснять, куда делись его цифры.
-      st.innerHTML = '⚠️ Ваш результат снят с конкурса. Напишите нам, если считаете это ошибкой.';
+      st.innerHTML = t('status.dq');
     } else if (state.info && now() < Date.parse(state.info.startsAt)) {
-      st.innerHTML = '⏳ Конкурс ещё не начался. Код уже работает — активации начнут считаться со старта.';
+      st.innerHTML = t('status.notStarted');
     } else {
-      st.innerHTML = `🔴 Условие не выполнено. Нужно ${acts(min)}.`;
+      st.innerHTML = t('status.need', { acts: acts(min) });
     }
   }
 
@@ -196,13 +262,15 @@ function renderStandings() {
     <li class="${r.isMe ? 'me' : ''}">
       <span class="bg" style="width:${Math.max(4, (r.activations / max) * 100)}%"></span>
       <span class="pos">${r.rank <= 3 ? medalFor(r.rank) : r.rank}</span>
-      <span class="name">${r.isMe ? 'ВЫ' : ''}</span>
-      <span class="val">${nf.format(r.activations)}</span>
+      <span class="name">${r.isMe ? t('board.you') : ''}</span>
+      <span class="val">${num(r.activations)}</span>
     </li>`).join('');
 
   $('updated').textContent = s.finalized
-    ? 'итоги зафиксированы'
-    : 'обновлено ' + new Date(s.computedAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    ? t('board.frozen')
+    : t('board.updated', {
+        time: new Date(s.computedAt).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' }),
+      });
 }
 
 async function loadStandings() {
@@ -217,8 +285,24 @@ async function loadStandings() {
 
 // ─────────────────────────── вход через Google ───────────────────────────
 
+let googleClientId = null;
+
+function renderGoogleButton() {
+  if (!window.google || !window.google.accounts || !window.google.accounts.id) return;
+  window.google.accounts.id.renderButton($('gbtn'), {
+    theme: 'filled_black',
+    size: 'large',
+    shape: 'pill',
+    text: 'continue_with',
+    locale: lang === 'kk' ? 'kk' : 'ru',
+    width: 280,
+  });
+}
+
 function initGoogle(clientId) {
-  if (!clientId) { $('loginNote').hidden = false; return; }
+  if (!clientId) { showLoginNote(t('login.unavailable')); return; }
+  googleClientId = clientId;
+
   const ready = () => window.google && window.google.accounts && window.google.accounts.id;
 
   const start = () => {
@@ -227,23 +311,21 @@ function initGoogle(clientId) {
       callback: onCredential,
       auto_select: false,
     });
-    window.google.accounts.id.renderButton($('gbtn'), {
-      theme: 'filled_black',
-      size: 'large',
-      shape: 'pill',
-      text: 'continue_with',
-      locale: 'ru',
-      width: 280,
-    });
+    renderGoogleButton();
   };
 
   if (ready()) return start();
   // Скрипт грузится с defer — ждём его, но не бесконечно.
   let waited = 0;
-  const t = setInterval(() => {
-    if (ready()) { clearInterval(t); start(); }
-    else if ((waited += 200) > 8000) { clearInterval(t); $('loginNote').hidden = false; }
+  const timer = setInterval(() => {
+    if (ready()) { clearInterval(timer); start(); }
+    else if ((waited += 200) > 8000) { clearInterval(timer); showLoginNote(t('login.unavailable')); }
   }, 200);
+}
+
+function showLoginNote(text) {
+  $('loginNote').hidden = false;
+  $('loginNote').textContent = text;
 }
 
 async function onCredential(response) {
@@ -256,10 +338,46 @@ async function onCredential(response) {
     renderMe();
     loadStandings();
   } catch (e) {
-    $('loginNote').hidden = false;
-    $('loginNote').textContent = e.data && e.data.error === 'email_not_verified'
-      ? 'Почта в этом Google-аккаунте не подтверждена.'
-      : 'Не удалось войти. Попробуйте ещё раз.';
+    showLoginNote(errText(e, 'login.failed'));
+  }
+}
+
+// ─────────────────────────── вход по ссылке ───────────────────────────
+
+/**
+ * Отрабатывает до всего остального: человек пришёл по ссылке именно затем,
+ * чтобы оказаться внутри. Токен сразу вычищается из адресной строки — иначе
+ * он останется в истории браузера и в «поделиться».
+ */
+async function tryInvite() {
+  const token = new URLSearchParams(location.search).get('invite');
+  if (!token) return false;
+
+  history.replaceState(null, '', location.pathname);
+  try {
+    const data = await api('/auth/invite', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+    state.me = data.participant;
+    return true;
+  } catch (e) {
+    showLoginNote(errText(e, 'err.bad_invite'));
+    return false;
+  }
+}
+
+async function requestMagic() {
+  const note = $('magicNote');
+  const email = $('magicEmail').value.trim();
+  if (!email) return;
+  note.hidden = false;
+  note.textContent = t('magic.sending');
+  try {
+    await api('/auth/magic', { method: 'POST', body: JSON.stringify({ email }) });
+    note.textContent = t('magic.sent');
+  } catch (e) {
+    note.textContent = errText(e, 'magic.failed');
   }
 }
 
@@ -271,7 +389,7 @@ $('profileForm').addEventListener('submit', async (e) => {
   const err = $('formError');
   err.hidden = true;
   btn.disabled = true;
-  btn.textContent = 'Выдаём код…';
+  btn.textContent = t('form.sending');
 
   try {
     const data = await api('/profile', {
@@ -290,15 +408,15 @@ $('profileForm').addEventListener('submit', async (e) => {
     loadStandings();
   } catch (e2) {
     err.hidden = false;
-    err.textContent = (e2.data && e2.data.message) || 'Не получилось сохранить. Проверьте поля.';
+    err.textContent = errText(e2, 'form.error');
   } finally {
     btn.disabled = false;
     fillForm();
   }
 });
 
-// Контакты можно поправить и после выдачи кода: телефон для приза человек
-// часто добавляет позже, а опечатку в нике иначе пришлось бы чинить руками.
+// Контакты можно поправить и после выдачи кода: телефон человек часто
+// добавляет позже, а опечатку в нике иначе пришлось бы чинить руками.
 $('editContacts').addEventListener('click', () => {
   state.editing = true;
   renderMe();
@@ -323,20 +441,21 @@ $('codeBtn').addEventListener('click', async () => {
   }
   const ticket = document.querySelector('.ticket');
   ticket.classList.add('copied');
-  $('copyHint').textContent = 'скопировано ✓';
+  $('copyHint').textContent = t('ticket.copied');
   setTimeout(() => {
     ticket.classList.remove('copied');
-    $('copyHint').textContent = 'нажмите, чтобы скопировать';
+    $('copyHint').textContent = t('ticket.hint');
   }, 1800);
 });
 
 $('logout').addEventListener('click', async () => {
   await api('/auth/logout', { method: 'POST' }).catch(() => undefined);
   state.me = null;
+  state.editing = false;
   renderMe();
 });
 
-// ─────────────────────────── вкладки ───────────────────────────
+// ─────────────────────────── вкладки и язык ───────────────────────────
 
 function switchTab(which) {
   const isMe = which === 'me';
@@ -351,6 +470,10 @@ function switchTab(which) {
 $('tabRules').addEventListener('click', () => switchTab('rules'));
 $('tabMe').addEventListener('click', () => switchTab('me'));
 
+for (const btn of document.querySelectorAll('.lang-btn')) {
+  btn.addEventListener('click', () => setLang(btn.dataset.lang));
+}
+
 // ─────────────────────────── встроенный браузер ───────────────────────────
 
 function checkInApp() {
@@ -359,56 +482,18 @@ function checkInApp() {
   $('inapp').hidden = false;
   $('copyLink').addEventListener('click', async () => {
     const url = location.origin + '/ugc';
-    try { await navigator.clipboard.writeText(url); $('copyLink').textContent = 'Ссылка скопирована ✓'; }
+    try { await navigator.clipboard.writeText(url); $('copyLink').textContent = t('inapp.copied'); }
     catch { $('copyLink').textContent = url; }
   });
 }
 
 // ─────────────────────────── старт ───────────────────────────
 
-/**
- * Вход по одноразовой ссылке. Отрабатывает до всего остального: человек пришёл
- * по ней именно затем, чтобы оказаться внутри. Токен сразу вычищается из
- * адресной строки — иначе он останется в истории браузера и в «поделиться».
- */
-async function tryInvite() {
-  const token = new URLSearchParams(location.search).get('invite');
-  if (!token) return false;
-
-  history.replaceState(null, '', location.pathname);
-  try {
-    const data = await api('/auth/invite', {
-      method: 'POST',
-      body: JSON.stringify({ token }),
-    });
-    state.me = data.participant;
-    return true;
-  } catch (e) {
-    $('loginNote').hidden = false;
-    $('loginNote').textContent = (e.data && e.data.message) || 'Ссылка недействительна. Попросите новую.';
-    return false;
-  }
-}
-
-async function requestMagic() {
-  const input = $('magicEmail');
-  const note = $('magicNote');
-  const email = input.value.trim();
-  if (!email) return;
-  note.hidden = false;
-  note.textContent = 'Отправляем…';
-  try {
-    await api('/auth/magic', { method: 'POST', body: JSON.stringify({ email }) });
-    note.textContent = 'Если адрес верный, письмо со ссылкой уже в пути. Проверьте папку «Спам».';
-  } catch (e) {
-    note.textContent = (e.data && e.data.message) || 'Не получилось отправить.';
-  }
-}
-
 async function boot() {
+  applyI18n();
   checkInApp();
 
-  const bySession = await tryInvite();
+  const byInvite = await tryInvite();
 
   try {
     state.info = await api('/info');
@@ -426,7 +511,7 @@ async function boot() {
   }
 
   // По ссылке уже вошли — второй запрос за тем же самым не нужен.
-  if (!bySession) {
+  if (!byInvite) {
     try {
       const data = await api('/me');
       state.me = data.participant;
@@ -438,8 +523,8 @@ async function boot() {
 
   await loadStandings();
   renderMe();
-  // Пришёл по ссылке — показываем сразу его результат, а не условия.
-  if (bySession) switchTab('me');
+  // Пришёл по ссылке — показываем сразу его профиль, а не условия.
+  if (byInvite) switchTab('me');
 
   // Обновляем цифры, пока вкладка открыта. Сервер всё равно кэширует минуту,
   // поэтому чаще спрашивать бессмысленно.
