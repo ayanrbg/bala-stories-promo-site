@@ -1,4 +1,4 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import express, { Router, Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { OAuth2Client } from 'google-auth-library';
 import {
@@ -37,6 +37,36 @@ const prisma = new PrismaClient();
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
+/**
+ * Вход возвращением на сайт вместо всплывающего окна.
+ *
+ * На айфоне окно Google после выбора аккаунта нередко остаётся белым: токен
+ * ему некому отдать — до вкладки, которая его открыла, он не достучался. При
+ * redirect ничего из окна в окно не передаётся, ломаться там нечему.
+ *
+ * Флаг, а не безусловное включение: Google примет режим только если адрес
+ * возврата прописан в OAuth-клиенте как разрешённый redirect URI. Пока он там
+ * не прописан, включать нельзя — вход упадёт у всех.
+ */
+const GOOGLE_REDIRECT_LOGIN = process.env.CONTEST_GOOGLE_REDIRECT === '1';
+
+/** Адрес возврата собирается из запроса: домен один, но пусть будет без правок. */
+function loginUri(req: Request): string {
+  return `${req.protocol}://${req.get('host')}/api/contest/auth/google/redirect`;
+}
+
+/** Своя разборка Cookie: ради двух кук тащить cookie-parser незачем. */
+function readCookie(req: Request, name: string): string | null {
+  const raw = req.headers.cookie;
+  if (!raw) return null;
+  for (const part of raw.split(';')) {
+    const i = part.indexOf('=');
+    if (i < 0) continue;
+    if (part.slice(0, i).trim() === name) return decodeURIComponent(part.slice(i + 1).trim());
+  }
+  return null;
+}
+
 /** Сколько строк рейтинга показываем. Своя строка добавляется отдельно. */
 const TOP_LIMIT = 10;
 
@@ -70,19 +100,21 @@ router.use(readSession);
 
 // ─────────────────────────── вход ───────────────────────────
 
-// POST /api/contest/auth/google { credential } — ID-токен от кнопки Google.
-router.post('/auth/google', rateLimit, async (req: Request, res: Response): Promise<void> => {
+type SignIn =
+  | { ok: true; participant: ParticipantRow }
+  | { ok: false; status: number; error: string };
+
+/**
+ * Проверка токена Google и заведение участника. Общая часть обоих способов
+ * входа: всплывающее окно отдаёт токен запросом, redirect — формой, но дальше
+ * с ним делается ровно одно и то же.
+ */
+async function signInWithGoogle(credential: string): Promise<SignIn> {
   if (!GOOGLE_CLIENT_ID || !sessionConfigured()) {
     console.error('[UGC] вход не настроен: нет GOOGLE_CLIENT_ID или CONTEST_SESSION_SECRET');
-    res.status(503).json({ error: 'auth_not_configured' });
-    return;
+    return { ok: false, status: 503, error: 'auth_not_configured' };
   }
-
-  const credential = String(req.body?.credential || '');
-  if (!credential) {
-    res.status(400).json({ error: 'no_credential' });
-    return;
-  }
+  if (!credential) return { ok: false, status: 400, error: 'no_credential' };
 
   let payload;
   try {
@@ -90,20 +122,13 @@ router.post('/auth/google', rateLimit, async (req: Request, res: Response): Prom
     payload = ticket.getPayload();
   } catch (e) {
     console.warn(`[UGC] отклонён токен Google: ${(e as Error).message}`);
-    res.status(401).json({ error: 'bad_credential' });
-    return;
+    return { ok: false, status: 401, error: 'bad_credential' };
   }
 
-  if (!payload?.sub || !payload.email) {
-    res.status(401).json({ error: 'bad_credential' });
-    return;
-  }
+  if (!payload?.sub || !payload.email) return { ok: false, status: 401, error: 'bad_credential' };
   // Непроверенная почта — это чужая почта: Google так помечает адреса, владение
   // которыми не подтверждено. Пускать по ней нельзя, иначе приз уедет не туда.
-  if (payload.email_verified === false) {
-    res.status(403).json({ error: 'email_not_verified' });
-    return;
-  }
+  if (payload.email_verified === false) return { ok: false, status: 403, error: 'email_not_verified' };
 
   const email = payload.email.toLowerCase();
 
@@ -133,14 +158,57 @@ router.post('/auth/google', rateLimit, async (req: Request, res: Response): Prom
         });
 
     if (!existing) console.log(`[UGC] новый участник ${participant.id} ${email}`);
-
-    issueSession(res, participant.id);
-    res.json({ ok: true, participant: publicParticipant(participant) });
+    return { ok: true, participant };
   } catch (e) {
     console.error(`[UGC] вход не удался ${email}: ${(e as Error).message}`);
-    res.status(500).json({ error: 'internal_error' });
+    return { ok: false, status: 500, error: 'internal_error' };
   }
+}
+
+// POST /api/contest/auth/google { credential } — ID-токен от кнопки Google
+// во всплывающем окне.
+router.post('/auth/google', rateLimit, async (req: Request, res: Response): Promise<void> => {
+  const r = await signInWithGoogle(String(req.body?.credential || ''));
+  if (!r.ok) {
+    res.status(r.status).json({ error: r.error });
+    return;
+  }
+  issueSession(res, r.participant.id);
+  res.json({ ok: true, participant: publicParticipant(r.participant) });
 });
+
+/**
+ * POST /api/contest/auth/google/redirect — сюда Google сам присылает форму,
+ * когда кнопка работает в режиме redirect. Тело form-urlencoded: общий
+ * express.json() такое не читает, поэтому разборщик стоит прямо на маршруте.
+ *
+ * Подделку отсекает двойная отправка: один и тот же g_csrf_token приходит и
+ * кукой, и полем формы, а куку с чужого сайта не прочитать. Отвечаем всегда
+ * 303 — после POST браузер должен уйти GET-ом, иначе обновление страницы
+ * попробует войти повторно уже погашенным токеном.
+ */
+router.post(
+  '/auth/google/redirect',
+  rateLimit,
+  express.urlencoded({ extended: false }),
+  async (req: Request, res: Response): Promise<void> => {
+    const fromCookie = readCookie(req, 'g_csrf_token');
+    const fromBody = String(req.body?.g_csrf_token || '');
+    if (!fromCookie || fromCookie !== fromBody) {
+      console.warn('[UGC] redirect-вход без совпадающего g_csrf_token');
+      res.redirect(303, '/ugc?login_error=bad_credential');
+      return;
+    }
+
+    const r = await signInWithGoogle(String(req.body?.credential || ''));
+    if (!r.ok) {
+      res.redirect(303, `/ugc?login_error=${r.error}`);
+      return;
+    }
+    issueSession(res, r.participant.id);
+    res.redirect(303, '/ugc?login=ok');
+  },
+);
 
 // POST /api/contest/auth/invite { token } — вход по одноразовой ссылке.
 // Запасной путь для тех, у кого Google не открывается; ссылку выдаёт админ
@@ -310,7 +378,7 @@ router.patch('/profile', requireParticipant, async (req: Request, res: Response)
 
 // GET /api/contest/info — сроки, порог, призы. Открыто без входа: страница
 // условий должна открываться по ссылке из шапки профиля сразу.
-router.get('/info', async (_req: Request, res: Response): Promise<void> => {
+router.get('/info', async (req: Request, res: Response): Promise<void> => {
   const contest = await getContest();
   if (!contest) {
     res.status(404).json({ error: 'no_contest' });
@@ -326,6 +394,10 @@ router.get('/info', async (_req: Request, res: Response): Promise<void> => {
     // Отдаём сюда, а не зашиваем в страницу: ключ живёт в .env одним экземпляром,
     // и смена OAuth-клиента не требует правки вёрстки.
     googleClientId: GOOGLE_CLIENT_ID || null,
+    // Каким способом входить, решает сервер: у redirect есть условие снаружи —
+    // адрес возврата должен быть прописан в OAuth-клиенте.
+    googleRedirect: GOOGLE_REDIRECT_LOGIN && !!GOOGLE_CLIENT_ID,
+    googleLoginUri: loginUri(req),
     // Показывать ли поле «прислать ссылку на почту»: обещать то, чего сервер
     // не умеет, хуже, чем не предлагать вовсе.
     mailLogin: mailConfigured(),
