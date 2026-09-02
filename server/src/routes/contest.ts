@@ -10,7 +10,14 @@ import {
 } from '../lib/contestSession';
 import { issueCodeFor } from '../lib/contestCode';
 import { consumeInvite, issueInviteLink, sendInviteMail, mailConfigured } from '../lib/contestInvite';
-import { getContest, getStandings, StandingRow } from '../lib/contestStandings';
+import {
+  getContest,
+  getStandings,
+  prizeTable,
+  PRIZE_FUND,
+  WINNERS_TOTAL,
+  StandingRow,
+} from '../lib/contestStandings';
 
 /**
  * Кабинет участника UGC-конкурса. Публичная часть сайта: логина админки здесь
@@ -324,13 +331,11 @@ router.get('/info', async (_req: Request, res: Response): Promise<void> => {
     mailLogin: mailConfigured(),
     // Часы на телефоне врут — обратный отсчёт синхронизируется по серверу.
     serverTime: new Date().toISOString(),
-    prizes: [
-      { place: '1 место', winners: 1, amount: 50000 },
-      { place: '2–6 места', winners: 5, amount: 20000 },
-      { place: '7–16 места', winners: 10, amount: 5000 },
-    ],
-    prizeFund: 200000,
-    winnersTotal: 16,
+    // Всё считается из одной сетки в contestStandings: подписи мест собирает
+    // клиент, потому что страница бывает и на казахском.
+    prizes: prizeTable(),
+    prizeFund: PRIZE_FUND,
+    winnersTotal: WINNERS_TOTAL,
   });
 });
 

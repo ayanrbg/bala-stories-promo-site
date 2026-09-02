@@ -18,12 +18,44 @@ const prisma = new PrismaClient();
 
 export const CONTEST_ID = process.env.CONTEST_ID || 'ugc-2026-09';
 
-/** Призовая сетка: 1 место, затем 2–6, затем 7–16. */
+/**
+ * Призовая сетка — единственное место, где она задана. Границы ступеней, число
+ * победителей и общий фонд считаются отсюда же: раньше сетка была продублирована
+ * в ответе `/info`, и списки разъехались — «16 победителей» осталось от прошлых
+ * условий, хотя по деньгам их было 14.
+ */
 const PRIZES: { maxRank: number; tier: number; amount: number }[] = [
   { maxRank: 1, tier: 1, amount: 50000 },
-  { maxRank: 6, tier: 2, amount: 20000 },
-  { maxRank: 16, tier: 3, amount: 5000 },
+  { maxRank: 4, tier: 2, amount: 20000 },
+  { maxRank: 14, tier: 3, amount: 10000 },
 ];
+
+export interface PrizeRow {
+  tier: number;
+  fromRank: number;
+  toRank: number;
+  winners: number;
+  amount: number;
+}
+
+/** Ступени с границами и числом победителей — для витрины. */
+export function prizeTable(): PrizeRow[] {
+  let from = 1;
+  return PRIZES.map((p) => {
+    const row: PrizeRow = {
+      tier: p.tier,
+      fromRank: from,
+      toRank: p.maxRank,
+      winners: p.maxRank - from + 1,
+      amount: p.amount,
+    };
+    from = p.maxRank + 1;
+    return row;
+  });
+}
+
+export const WINNERS_TOTAL = PRIZES[PRIZES.length - 1].maxRank;
+export const PRIZE_FUND = prizeTable().reduce((sum, r) => sum + r.winners * r.amount, 0);
 
 export function prizeFor(rank: number, qualified: boolean): { tier: number | null; amount: number | null } {
   if (!qualified) return { tier: null, amount: null };

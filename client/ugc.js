@@ -154,17 +154,22 @@ function renderInfo(info) {
   $('winnersTotal').textContent = info.winnersTotal;
   $('dates').textContent = `${dateLong(info.startsAt)} — ${dateLong(info.endsAt)}`;
 
-  // Подписи мест собираем сами: сервер отдаёт их по-русски, а страница может
-  // быть на казахском. Порядок призов при этом задаёт всё равно сервер.
+  // Подписи мест собираем из границ ступени, а не берём готовыми: сетка может
+  // поменяться, а страница ещё и бывает на казахском.
   const medals = ['🥇', '🥈', '🥉'];
-  $('prizes').innerHTML = info.prizes.map((p, i) => `
+  $('prizes').innerHTML = info.prizes.map((p, i) => {
+    const place = p.fromRank === p.toRank
+      ? t('prizes.placeOne', { n: p.fromRank })
+      : t('prizes.placeRange', { a: p.fromRank, b: p.toRank });
+    return `
     <li>
       <span class="medal">${medals[i] || '🎁'}</span>
-      <span class="place">${t('prizes.place' + (i + 1))}
+      <span class="place">${place}
         <span class="who">${p.winners > 1 ? t('prizes.many', { n: p.winners, sum: num(p.amount) }) : t('prizes.one')}</span>
       </span>
       <span class="amount">${num(p.amount)} ₸</span>
-    </li>`).join('');
+    </li>`;
+  }).join('');
 }
 
 // ─────────────────────────── экран профиля ───────────────────────────
@@ -226,7 +231,7 @@ function renderStandings() {
       st.className = 'status good';
       st.innerHTML = me.prizeAmount
         ? t('status.goodPrize', { sum: num(me.prizeAmount) })
-        : t('status.good');
+        : t('status.good', { n: (state.info && state.info.winnersTotal) || '' });
     } else {
       st.className = 'status bad';
       st.innerHTML = t('status.bad', { acts: acts(me.remaining) });
