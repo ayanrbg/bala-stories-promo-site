@@ -311,17 +311,11 @@ function initGoogle(clientId) {
   const ready = () => window.google && window.google.accounts && window.google.accounts.id;
 
   const start = () => {
-    // Режим входа выбирает сервер. Всплывающее окно отдаёт токен обратно в
-    // страницу — и на айфоне иногда не отдаёт вовсе: окно остаётся белым.
-    // Redirect уводит и возвращает саму вкладку, терять токен там негде.
-    const opts = { client_id: clientId, auto_select: false };
-    if (state.info && state.info.googleRedirect) {
-      opts.ux_mode = 'redirect';
-      opts.login_uri = state.info.googleLoginUri || location.origin + '/api/contest/auth/google/redirect';
-    } else {
-      opts.callback = onCredential;
-    }
-    window.google.accounts.id.initialize(opts);
+    window.google.accounts.id.initialize({
+      client_id: clientId,
+      callback: onCredential,
+      auto_select: false,
+    });
     renderGoogleButton();
   };
 
@@ -351,19 +345,6 @@ async function onCredential(response) {
   } catch (e) {
     showLoginNote(errText(e, 'login.failed'));
   }
-}
-
-/**
- * Возврат из Google в режиме redirect: сервер приводит человека обратно с
- * пометкой в адресе. Пометку сразу вычищаем — обновление страницы не должно
- * показывать вчерашнюю ошибку и не должно снова прыгать на «Мой профиль».
- */
-function readLoginReturn() {
-  const q = new URLSearchParams(location.search);
-  const ok = q.get('login') === 'ok';
-  const err = q.get('login_error');
-  if (ok || err) history.replaceState(null, '', location.pathname);
-  return { ok, err };
 }
 
 // ─────────────────────────── вход по ссылке ───────────────────────────
@@ -500,12 +481,37 @@ for (const btn of document.querySelectorAll('.lang-btn')) {
 
 // ─────────────────────────── встроенный браузер ───────────────────────────
 
+/**
+ * Встроенные браузеры Instagram и TikTok. Google в них вход блокирует сам —
+ * это его политика, а не наша поломка, — поэтому единственное, что мы можем
+ * сделать для входа через Google, это вывести человека в настоящий браузер.
+ *
+ * Кнопка пробует сделать это за него: на Android через intent://, на iOS через
+ * схему x-safari-https. Оба способа работают не везде, поэтому под кнопкой
+ * остаётся копирование ссылки — оно не подводит никогда.
+ */
 function checkInApp() {
   const ua = navigator.userAgent || '';
   if (!/Instagram|FBAN|FBAV|FB_IAB|TikTok|musical_ly|Line\/|VKAndroidApp|OKApp/i.test(ua)) return;
+
   $('inapp').hidden = false;
+  const url = location.origin + '/ugc';
+  const isAndroid = /Android/i.test(ua);
+
+  $('openExternal').addEventListener('click', () => {
+    if (isAndroid) {
+      const host = location.host + '/ugc';
+      // Без package=... системе предлагается любой браузер; Chrome указан как
+      // запасной вариант в самой ссылке.
+      window.location.href = `intent://${host}#Intent;scheme=https;action=android.intent.action.VIEW;S.browser_fallback_url=${encodeURIComponent(url)};end`;
+    } else {
+      window.location.href = 'x-safari-' + url;
+    }
+    // Если схему проглотили молча — через секунду подсказываем запасной путь.
+    setTimeout(() => { $('inappFallback').hidden = false; }, 1200);
+  });
+
   $('copyLink').addEventListener('click', async () => {
-    const url = location.origin + '/ugc';
     try { await navigator.clipboard.writeText(url); $('copyLink').textContent = t('inapp.copied'); }
     catch { $('copyLink').textContent = url; }
   });
@@ -517,8 +523,6 @@ async function boot() {
   applyI18n();
   checkInApp();
 
-  // Раньше всего, что трогает адресную строку: tryInvite её чистит.
-  const back = readLoginReturn();
   const byInvite = await tryInvite();
 
   try {
@@ -549,10 +553,8 @@ async function boot() {
 
   await loadStandings();
   renderMe();
-  // Пришёл по ссылке или вернулся от Google — показываем сразу его профиль,
-  // а не условия. Про неудачный вход говорим на том же экране, где кнопка.
-  if (byInvite || back.ok || back.err) switchTab('me');
-  if (back.err) showLoginNote(errText({ data: { error: back.err } }, 'login.failed'));
+  // Пришёл по ссылке — показываем сразу его профиль, а не условия.
+  if (byInvite) switchTab('me');
 
   // Обновляем цифры, пока вкладка открыта. Сервер всё равно кэширует минуту,
   // поэтому чаще спрашивать бессмысленно.
