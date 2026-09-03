@@ -437,6 +437,21 @@ main { max-width: 460px; margin: 0 auto; padding: 0 18px 30px; }
 .gbtn { display: flex; justify-content: center; min-height: 44px; }
 .login-note { margin-top: 12px; font-size: 13px; color: var(--rose); }
 
+/* Подсказка про браузер: заметная, но не тревожная — это не ошибка,
+   а условие, при котором кнопка выше вообще способна сработать. */
+.browser-hint {
+  margin-top: 14px;
+  padding: 11px 13px;
+  border-radius: 12px;
+  background: rgba(245,192,78,.08);
+  border: 1px solid var(--card-line);
+  color: #d9d2ea;
+  font-size: 12.5px;
+  line-height: 1.5;
+  text-align: left;
+}
+.browser-hint b { color: var(--gold-soft); }
+
 .magic { margin-top: 20px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,.09); }
 .magic-or { font-size: 12.5px; color: var(--muted); margin-bottom: 10px; }
 .magic-row { display: flex; gap: 8px; }
