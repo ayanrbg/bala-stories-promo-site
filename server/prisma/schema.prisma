@@ -56,6 +56,10 @@ model TalePromo {
   maxUses   Int?           // null = безлимит
   useCount  Int            @default(0)
   label     String?
+  /// Дата, после которой код перестаёт активироваться. null = бессрочно
+  /// (так у всех кодов, заведённых до появления колонки). Уже открытые сказки
+  /// живут в Fairy и не гаснут: срок ограничивает ввод, а не подарок.
+  expiresAt DateTime?
   createdAt DateTime       @default(now())
   uses      TalePromoUse[]
 }

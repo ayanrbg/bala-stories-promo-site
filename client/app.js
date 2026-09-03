@@ -1418,6 +1418,25 @@ function tpTitle(t) {
   return (t.titles && (t.titles.ru || Object.values(t.titles)[0])) || t.id;
 }
 
+// Срок хранится моментом (конец последнего дня по Алматы), а в поле показывается
+// сам день. Казахстан живёт без перехода на летнее время, поэтому сдвиг один и
+// навсегда. Обратно не переводим: серверу уходит голая дата, он и раскрывает её
+// в конец дня — иначе одно и то же правило жило бы в двух местах.
+var TP_OFFSET_MS = 5 * 60 * 60 * 1000;
+
+function tpIsoToDateInput(iso) {
+  if (!iso) return '';
+  return new Date(Date.parse(iso) + TP_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+function tpFmtExpires(iso) {
+  if (!iso) return '<span class="hint">бессрочно</span>';
+  var txt = new Date(iso).toLocaleDateString('ru-RU', {
+    day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Almaty'
+  });
+  return esc(txt);
+}
+
 function renderTalePicker() {
   var box = tq('tp-tales-picker');
   if (!box) return;
@@ -1447,7 +1466,7 @@ function renderTalePromos(promos) {
   var tbody = tq('tale-promos-table-body');
   if (!tbody) return;
   if (!promos.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="hint">кодов пока нет</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="hint">кодов пока нет</td></tr>';
     return;
   }
   var byId = {};
@@ -1455,12 +1474,15 @@ function renderTalePromos(promos) {
   tbody.innerHTML = promos.map(function (p) {
     var tales = (p.taleIds || []).map(function (id) { return esc(byId[id] || id); }).join(', ');
     var uses = (p.useCount || 0) + ' / ' + (p.maxUses == null ? '∞' : p.maxUses);
+    // Истёк ли — считает сервер: у админа могут быть свои часы и своя зона.
+    var expires = tpFmtExpires(p.expiresAt) + (p.expired ? ' <span class="hint">— истёк</span>' : '');
     return '<tr>' +
       '<td><code>' + esc(p.code) + '</code></td>' +
       '<td>' + (p.label ? esc(p.label) : '—') + '</td>' +
       '<td>' + (p.bloggerName ? esc(p.bloggerName) : '—') + '</td>' +
       '<td>' + (tales || '—') + '</td>' +
       '<td>' + uses + '</td>' +
+      '<td>' + expires + '</td>' +
       '<td>' + new Date(p.createdAt).toLocaleDateString('ru') + '</td>' +
       '<td><button class="btn btn-sm" onclick="editTalePromo(\'' + esc(p.id) + '\')">Сказки</button> ' +
       '<button class="btn btn-danger btn-sm" onclick="deleteTalePromo(\'' + esc(p.id) + '\')">Удалить</button></td>' +
@@ -1525,6 +1547,7 @@ function editTalePromo(id) {
   if (tq('tp-label-input')) tq('tp-label-input').value = p.label || '';
   if (tq('tp-blogger-input')) tq('tp-blogger-input').value = p.bloggerId || '';
   if (tq('tp-maxuses-input')) tq('tp-maxuses-input').value = p.maxUses == null ? '' : p.maxUses;
+  if (tq('tp-expires-input')) tq('tp-expires-input').value = tpIsoToDateInput(p.expiresAt);
   if (tq('tp-create-btn')) tq('tp-create-btn').textContent = 'Сохранить';
   window.scrollTo(0, 0);
 }
@@ -1535,6 +1558,7 @@ function tpResetForm() {
   if (tq('tp-code-input')) { tq('tp-code-input').value = ''; tq('tp-code-input').disabled = false; }
   if (tq('tp-label-input')) tq('tp-label-input').value = '';
   if (tq('tp-maxuses-input')) tq('tp-maxuses-input').value = '';
+  if (tq('tp-expires-input')) tq('tp-expires-input').value = '';
   if (tq('tp-blogger-input')) tq('tp-blogger-input').value = '';
   if (tq('tp-create-btn')) tq('tp-create-btn').textContent = 'Создать';
   renderTalePicker();
@@ -1548,6 +1572,9 @@ async function saveTalePromo() {
     label: tq('tp-label-input').value || undefined,
     bloggerId: tq('tp-blogger-input').value || null,
     maxUses: tq('tp-maxuses-input').value || null,
+    // Пустое поле — бессрочно; при редактировании это ещё и способ снять
+    // ранее выставленный срок, поэтому шлём null, а не пропускаем ключ.
+    expiresAt: (tq('tp-expires-input') && tq('tp-expires-input').value) || null,
     taleIds: taleIds
   };
 

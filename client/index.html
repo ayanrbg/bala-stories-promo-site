@@ -137,6 +137,10 @@
         <input type="text" id="tp-code-input" placeholder="Код (авто)" class="input-sm">
         <select id="tp-blogger-input" class="input-sm"></select>
         <input type="number" id="tp-maxuses-input" placeholder="Лимит вводов (пусто = ∞)" min="1" class="input-sm">
+        <label class="checkbox-inline" title="Последний день, когда код можно ввести (по Алматы, включительно). Пусто — бессрочно. Сказки, открытые до этой даты, остаются у людей навсегда.">
+          Действует по:
+          <input type="date" id="tp-expires-input" class="input-sm">
+        </label>
         <button id="tp-create-btn" class="btn btn-primary">Создать</button>
         <button id="tp-refresh-btn" class="btn btn-outline">Обновить</button>
       </div>
@@ -152,6 +156,7 @@
             <th>Блогер</th>
             <th>Сказки</th>
             <th>Вводов</th>
+            <th>Действует по</th>
             <th>Создан</th>
             <th></th>
           </tr>

@@ -116,10 +116,21 @@ router.post('/check', async (req: Request, res: Response): Promise<void> => {
       : null;
 
     if (!already) {
+      // Срок проверяется только для нового ввода. Кто успел до даты, тот при
+      // повторном обращении получает свои сказки и после неё: срок закрывает
+      // код для новых людей, а не отбирает уже выданное.
+      if (talePromo.expiresAt && talePromo.expiresAt.getTime() <= Date.now()) {
+        res.status(410).json({ error: 'code_expired', message: 'Срок действия промокода истёк' });
+        return;
+      }
+
+      // Срок в самом UPDATE — по той же причине, что и лимит вводов: между
+      // проверкой и записью проходит время, и решать должна база.
       const taken = await prisma.$executeRaw`
         UPDATE "TalePromo" SET "useCount" = "useCount" + 1
          WHERE "id" = ${talePromo.id}
-           AND ("maxUses" IS NULL OR "useCount" < "maxUses")`;
+           AND ("maxUses" IS NULL OR "useCount" < "maxUses")
+           AND ("expiresAt" IS NULL OR "expiresAt" > (now() AT TIME ZONE 'UTC'))`;
 
       if (taken === 0) {
         res.status(410).json({ error: 'code_exhausted', message: 'Промокод больше не действует' });
