@@ -179,3 +179,122 @@ model ContestResult {
   @@id([contestId, participantId])
   @@index([contestId, rank])
 }
+
+// ─────────────────── Розыгрыш в Telegram-боте ───────────────────
+// Здесь участник — зритель, а не автор: он ставит приложение, вводит личный код
+// и получает билеты. Победители не по местам, а случайным взвешенным выбором.
+// Активации и оплаты, как и у конкурса, живут в Fairy и спрашиваются по коду.
+
+/// Кампания розыгрыша. Правила билетов и призы — настройка, а не константа в
+/// коде: состав билетов на старте не определён, и его смена не должна быть
+/// деплоем. `published = false` — бот отвечает только админам из TG_ADMIN_IDS,
+/// поэтому кампанию можно собрать и прогнать до того, как объявлены призы.
+model TgCampaign {
+  id           String    @id @default("tg-2026-09")
+  title        String
+  startsAt     DateTime
+  endsAt       DateTime
+  /// [{ id: "install", tickets: 1, enabled: true, cap?: 5 }, ...]
+  rules        Json
+  /// [{ tier: 1, amount: 100000, count: 1 }, ...] — фонд считается отсюда.
+  prizeGrid    Json
+  /// Что открывает код участника. Пусто = взять из TG_TALE_IDS либо из
+  /// последнего блогерского кода (та же лестница, что у конкурса).
+  taleIds      String[]
+  /// Канал для правила `channel`; бот должен быть в нём администратором.
+  channelId    String?
+  published    Boolean   @default(false)
+  /// Публикуется ДО розыгрыша (хэш списка участников), seed — после.
+  seedHash     String?
+  seed         String?
+  finalizedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  participants TgParticipant[]
+  snapshots    TgTicketSnapshot[]
+  winners      TgWinner[]
+}
+
+/// Участник привязан к кампании: следующая кампания выдаст тому же человеку
+/// новый код, а прошлый останется в истории со своими активациями.
+model TgParticipant {
+  campaign     TgCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaignId   String
+  id           String     @id @default(uuid())
+
+  /// Telegram id хранится строкой: он не участвует в арифметике, зато BigInt
+  /// ломает JSON.stringify в каждом ответе админки.
+  tgUserId     String
+  username     String?
+  firstName    String?
+  languageCode String?
+
+  /// ?start=<источник> — по чьей ссылке пришёл (блогер, канал, реклама).
+  source       String?
+  /// ?start=ref_<tgUserId> — кто пригласил; билет засчитывается пригласившему
+  /// только после подтверждённой активации приглашённого.
+  invitedBy    TgParticipant?  @relation("TgInvites", fields: [invitedById], references: [id])
+  invitedById  String?
+  invited      TgParticipant[] @relation("TgInvites")
+
+  code         String?    @unique
+  /// TalePromo под этот код: без него код не сработает в приложении.
+  talePromoId  String?    @unique
+
+  /// Проставляет синхронизация с Fairy: активация кода и первая оплата по нему.
+  activatedAt  DateTime?
+  paidAt       DateTime?
+  channelOk    Boolean    @default(false)
+
+  disqualified Boolean    @default(false)
+  dqReason     String?
+  /// Спрашивается только у победителей — реквизиты для выплаты.
+  phone        String?
+
+  createdAt    DateTime   @default(now())
+  codeIssuedAt DateTime?
+  lastSeenAt   DateTime   @default(now())
+
+  snapshots    TgTicketSnapshot[]
+  wins         TgWinner[]
+
+  @@unique([campaignId, tgUserId])
+  @@index([campaignId, activatedAt])
+  @@index([invitedById])
+}
+
+/// Билеты, замороженные перед розыгрышем. Как и у конкурса — снимок, потому что
+/// активации живут в чужой базе: снятая поддержкой связка не должна задним
+/// числом менять уже проведённый розыгрыш.
+model TgTicketSnapshot {
+  campaign      TgCampaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaignId    String
+  participant   TgParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  participantId String
+
+  code          String
+  tickets       Int
+  /// { install: 1, subscription: 5, friend: 4 } — из чего сложились билеты.
+  breakdown     Json
+  frozenAt      DateTime      @default(now())
+
+  @@id([campaignId, participantId])
+  @@index([campaignId])
+}
+
+model TgWinner {
+  campaign      TgCampaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaignId    String
+  participant   TgParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  participantId String
+
+  prizeTier     Int
+  prizeAmount   Int
+  notifiedAt    DateTime?
+  paidAt        DateTime?
+  createdAt     DateTime      @default(now())
+
+  @@id([campaignId, participantId])
+  @@index([campaignId, prizeTier])
+}
