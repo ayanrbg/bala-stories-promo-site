@@ -39,9 +39,32 @@ app.get('/tg/health', (_req, res) => {
   res.json({ ok: true, bot: bot.botInfo?.username || null });
 });
 
+const handleUpdate = webhookCallback(bot, 'express', {
+  secretToken: SECRET,
+  // Медленный обработчик не должен превращаться в брошенный запрос: Telegram
+  // ждёт ответа и при молчании присылает то же обновление снова.
+  onTimeout: 'return',
+  timeoutMilliseconds: 8000,
+});
+
 // Секрет и в адресе, и в заголовке: адрес отсекает случайный шум из интернета,
 // заголовок — того, кто адрес всё-таки узнал (из логов nginx, например).
-app.post(`/tg/webhook/${SECRET}`, webhookCallback(bot, 'express', { secretToken: SECRET }));
+//
+// Обёртка обязательна: при вебхуке grammy НЕ отправляет ошибки в bot.catch —
+// тот работает только у long polling. Ошибка всплывает в Express, а он не ловит
+// отказы асинхронных обработчиков, и запрос повисает навсегда. Проверено:
+// неудачная отправка ответа (человек не начинал чат) вешала соединение.
+//
+// Отвечаем 200 даже на сбой: иначе Telegram будет вечно повторять то же самое
+// обновление, и одна битая кнопка забьёт очередь всем остальным.
+app.post(`/tg/webhook/${SECRET}`, async (req, res) => {
+  try {
+    await handleUpdate(req, res);
+  } catch (e) {
+    console.error(`[TG] обновление не обработано: ${(e as Error).message}`);
+    if (!res.headersSent) res.sendStatus(200);
+  }
+});
 
 async function main(): Promise<void> {
   // Явная инициализация до listen: она проверяет токен и заполняет ctx.me —
