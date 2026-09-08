@@ -160,6 +160,69 @@ export function status(contest: Contest, code: string, row: StandingRow | null):
   );
 }
 
+// ─────────────────────────── уведомления ───────────────────────────
+
+export function notifyActivations(delta: number, total: number, contest: Contest): string {
+  const left = Math.max(0, contest.minActivations - total);
+  const tail = left > 0
+    ? `До порога ещё ${left} ${plural(left, 'активация', 'активации', 'активаций')}.`
+    : 'Порог пройден — вы в распределении призов.';
+  return (
+    `📈 +${delta} ${plural(delta, 'активация', 'активации', 'активаций')}!\n` +
+    `Всего у вас: <b>${total}</b>. ${tail}`
+  );
+}
+
+export function notifyThreshold(total: number, contest: Contest): string {
+  return (
+    '🟢 <b>Порог пройден!</b>\n\n' +
+    `У вас ${total} ${plural(total, 'активация', 'активации', 'активаций')} — ` +
+    `это больше ${contest.minActivations}, и теперь вы участвуете в распределении призов.\n` +
+    'Чем выше место, тем больше приз, так что не останавливайтесь.'
+  );
+}
+
+export function notifyRankUp(rank: number, total: number, prizeAmount: number | null): string {
+  const prize = prizeAmount ? `\n💰 Приз за это место — ${money(prizeAmount)}.` : '';
+  return (
+    `🏆 Вы поднялись на <b>${rank} место</b>!\n` +
+    `Активаций: ${total}.${prize}`
+  );
+}
+
+export function notifyThreeDays(contest: Contest, total: number, rank: number | null): string {
+  const where = rank ? `Сейчас вы на ${rank} месте с ${total} активациями.` : 'Активаций пока нет.';
+  return (
+    '⏳ <b>Три дня до финиша</b>\n\n' +
+    `${where}\n` +
+    `Приём активаций закрывается ${almatyDate(contest.endsAt)}. ` +
+    'Последние дни обычно решают всё — самое время напомнить о коде своей аудитории.'
+  );
+}
+
+export function notifyResults(row: StandingRow | null): string {
+  if (!row || row.rank === null) {
+    return (
+      '🏁 <b>Конкурс завершён</b>\n\n' +
+      'Спасибо, что участвовали! В этот раз активаций по вашему коду не набралось, ' +
+      'но код продолжает работать — сказки по нему по-прежнему открываются.'
+    );
+  }
+  if (row.prizeAmount) {
+    return (
+      '🎉 <b>Вы в числе победителей!</b>\n\n' +
+      `Итоговое место: <b>${row.rank}</b>, активаций: ${row.activations}.\n` +
+      `Приз — ${money(row.prizeAmount)}. Мы свяжемся с вами по указанному телефону, ` +
+      'чтобы договориться о выплате.'
+    );
+  }
+  return (
+    '🏁 <b>Конкурс завершён</b>\n\n' +
+    `Ваше итоговое место: <b>${row.rank}</b>, активаций: ${row.activations}.\n` +
+    'В призовую часть в этот раз не попали — но спасибо, что были с нами.'
+  );
+}
+
 export const help =
   'Что я умею:\n\n' +
   '/start — условия конкурса\n' +

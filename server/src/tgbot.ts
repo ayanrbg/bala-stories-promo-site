@@ -4,6 +4,7 @@ dotenv.config();
 import express from 'express';
 import { webhookCallback } from 'grammy';
 import { bot, MINIAPP_URL } from './bot';
+import { startNotifier } from './bot/notifier';
 
 /**
  * Отдельный процесс бота (pm2 `bala-tgbot`).
@@ -90,6 +91,10 @@ async function main(): Promise<void> {
   const server = app.listen(PORT, () => {
     console.log(`[TG] бот @${bot.botInfo.username} слушает порт ${PORT}`);
   });
+
+  // Рассылка живёт в процессе бота, а не сайта: у сайта нет ни токена, ни
+  // причины знать про Telegram.
+  startNotifier();
 
   // pm2 restart шлёт SIGINT/SIGTERM: дать доиграть текущие обновления, иначе
   // Telegram посчитает их недоставленными и пришлёт повторно.
