@@ -464,7 +464,9 @@ $('logout').addEventListener('click', async () => {
 
 function switchTab(which) {
   const isMe = which === 'me';
-  $('screenRules').hidden = isMe;
+  // В Telegram экран один: условия переехали под результат, прятать их нечем
+  // и незачем.
+  if (!document.body.classList.contains('is-tg')) $('screenRules').hidden = isMe;
   $('screenMe').hidden = !isMe;
   $('tabRules').classList.toggle('is-active', !isMe);
   $('tabMe').classList.toggle('is-active', isMe);
@@ -523,6 +525,29 @@ async function tryTelegram() {
   }
 }
 
+/**
+ * В Telegram страница живёт одним экраном: сверху результат и рейтинг, ниже —
+ * условия и сроки. Вкладки там лишние: человек пришёл из бота, где условия ему
+ * уже показали, и переключаться между двумя экранами внутри окна поверх чата
+ * неудобно. Карточки условий не дублируются в вёрстке, а переезжают под
+ * результат — иначе однажды разъедутся два текста об одном и том же.
+ */
+function applyTelegramLayout() {
+  document.body.classList.add('is-tg');
+
+  const rules = $('screenRules');
+  const me = $('screenMe');
+
+  const divider = document.createElement('p');
+  divider.className = 'tg-divider';
+  divider.dataset.i18n = 'tabs.rules';
+  divider.textContent = t('tabs.rules');
+
+  rules.hidden = false;
+  me.appendChild(divider);
+  me.appendChild(rules);
+}
+
 function checkInApp() {
   // В Telegram страница работает как задумано — плашка «откройте в браузере»
   // там сбивала бы с толку, а вход и так уже состоялся.
@@ -563,7 +588,10 @@ async function boot() {
   // Вход из Telegram идёт первым: если он сработал, ни Google, ни ссылка уже
   // не нужны — и экран входа не мигнёт перед готовым кабинетом.
   const byTelegram = await tryTelegram();
-  if (byTelegram) state.me = byTelegram;
+  if (byTelegram) {
+    state.me = byTelegram;
+    applyTelegramLayout();
+  }
 
   const byInvite = byTelegram ? false : await tryInvite();
 

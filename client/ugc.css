@@ -646,3 +646,31 @@ main { max-width: 460px; margin: 0 auto; padding: 0 18px 30px; }
 @media (min-width: 500px) {
   .hero { padding-top: 56px; }
 }
+
+/* ── Mini App: один экран вместо двух ──
+   Вкладки прячем правилом, а не атрибутом hidden: у .tabs свой display: grid,
+   и он бы его перебил. Нижний отступ тела был оставлен под панель вкладок —
+   без неё он превращается в пустоту на пол-экрана. */
+body.is-tg { padding-bottom: 24px; }
+body.is-tg .tabs { display: none; }
+
+body.is-tg .tg-divider {
+  margin: 30px 0 16px;
+  text-align: center;
+  font-family: 'Unbounded', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+body.is-tg .tg-divider::before,
+body.is-tg .tg-divider::after {
+  content: '';
+  display: inline-block;
+  width: 28px;
+  height: 1px;
+  margin: 0 10px;
+  vertical-align: middle;
+  background: var(--card-line);
+}

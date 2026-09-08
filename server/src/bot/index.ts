@@ -30,6 +30,8 @@ export const bot = new Bot<Ctx>(process.env.TG_BOT_TOKEN || '');
 export const MINIAPP_URL = process.env.TG_MINIAPP_URL || 'https://promocode-stories.apiapp.kz/ugc';
 
 const kbJoin = () => new InlineKeyboard().text('📝 Участвовать', 'join');
+/** Код уже есть, а телефона нет — по нему платят приз, поэтому просим отдельно. */
+const kbNeedPhone = () => new InlineKeyboard().text('📱 Указать телефон', 'join');
 const kbStatus = () => new InlineKeyboard()
   .webApp('📊 Кабинет и рейтинг', MINIAPP_URL).row()
   .text('🏆 Мой результат', 'status');
@@ -98,10 +100,10 @@ async function showTerms(ctx: Ctx): Promise<void> {
   }
 
   const participant = await participantOf(ctx);
-  await ctx.reply(t.terms(contest), {
-    parse_mode: 'HTML',
-    reply_markup: participant?.code ? kbStatus() : kbJoin(),
-  });
+  const keyboard = !participant?.code
+    ? kbJoin()
+    : participant.phone ? kbStatus() : kbNeedPhone();
+  await ctx.reply(t.terms(contest), { parse_mode: 'HTML', reply_markup: keyboard });
 }
 
 bot.command('start', showTerms);
@@ -119,15 +121,20 @@ async function showStatus(ctx: Ctx): Promise<void> {
   const rows = await computeStandings(ctx.contest);
   const mine = rows.find((r) => r.participantId === participant.id) || null;
 
-  await ctx.reply(t.status(ctx.contest, participant.code, mine), {
+  const text = t.status(ctx.contest, participant.code, mine) + (participant.phone ? '' : t.phoneMissing);
+  await ctx.reply(text, {
     parse_mode: 'HTML',
-    reply_markup: new InlineKeyboard().webApp('📊 Кабинет и рейтинг', MINIAPP_URL),
+    reply_markup: participant.phone
+      ? new InlineKeyboard().webApp('📊 Кабинет и рейтинг', MINIAPP_URL)
+      : kbNeedPhone(),
   });
 }
 
 bot.command('status', showStatus);
 bot.callbackQuery('status', async (ctx) => {
-  await ctx.answerCallbackQuery();
+  // Квитанция о нажатии не должна решать судьбу обработчика: у старой кнопки
+  // Telegram отвечает ошибкой, и тап молча не сработал бы.
+  await ctx.answerCallbackQuery().catch(() => undefined);
   await showStatus(ctx);
 });
 
@@ -144,7 +151,10 @@ bot.command('help', async (ctx) => {
  * спрашиваем телефон, нет соцсети — соцсеть, есть всё — выдаём код.
  */
 async function nextStep(ctx: Ctx, participant: Participant | null): Promise<void> {
-  if (!participant) {
+  // Телефон спрашивается и у того, чья запись уже есть: она могла появиться из
+  // Mini App, где вход происходит без анкеты вовсе. Без этой проверки человек
+  // получал код, ни разу не назвав телефон, — а по нему платят приз.
+  if (!participant || !participant.phone) {
     await ctx.reply(t.askPhone, { parse_mode: 'HTML', reply_markup: kbPhone() });
     return;
   }
@@ -183,7 +193,9 @@ async function issueAndShow(ctx: Ctx, participant: Participant): Promise<void> {
 }
 
 bot.callbackQuery('join', async (ctx) => {
-  await ctx.answerCallbackQuery();
+  // Квитанция о нажатии не должна решать судьбу обработчика: у старой кнопки
+  // Telegram отвечает ошибкой, и тап молча не сработал бы.
+  await ctx.answerCallbackQuery().catch(() => undefined);
 
   const now = new Date();
   if (now < ctx.contest.startsAt) {
@@ -210,16 +222,14 @@ async function handlePhone(ctx: Ctx, raw: string, verified: boolean): Promise<vo
     return;
   }
 
-  const existing = await findByPhone(phone);
+  const tgUserId = String(ctx.from!.id);
+  // Своя запись может уже существовать без телефона: вход в Mini App заводит её
+  // без анкеты. Тогда телефон дописывается в неё, а не создаётся вторая.
+  const mine = await participantOf(ctx);
+  const other = await findByPhone(phone);
 
-  // Свой же номер прислали второй раз — просто продолжаем анкету.
-  if (existing && existing.tgUserId === String(ctx.from!.id)) {
-    await nextStep(ctx, existing);
-    return;
-  }
-
-  if (existing) {
-    if (existing.tgUserId) {
+  if (other && other.id !== mine?.id) {
+    if (other.tgUserId) {
       await ctx.reply(t.phoneTakenByOther, { reply_markup: { remove_keyboard: true } });
       return;
     }
@@ -228,24 +238,51 @@ async function handlePhone(ctx: Ctx, raw: string, verified: boolean): Promise<vo
       return;
     }
 
-    const merged = await prisma.participant.update({
-      where: { id: existing.id },
-      data: {
-        tgUserId: String(ctx.from!.id),
-        tgUsername: ctx.from!.username || null,
-        name: existing.name || displayName(ctx),
-        telegram: existing.telegram || (ctx.from!.username ? `@${ctx.from!.username}` : null),
-        lastSeenAt: new Date(),
-      },
+    // Свой код уже выдан — переезжать поздно: чужая запись осталась бы с нашим
+    // кодом, а розданный аудитории код исчез бы. Просто дописываем телефон себе.
+    if (mine?.code) {
+      const updated = await prisma.participant.update({
+        where: { id: mine.id },
+        data: { phone, lastSeenAt: new Date() },
+      });
+      console.log(`[TG] телефон дописан участнику ${updated.id} (запись ${other.id} не тронута)`);
+      await nextStep(ctx, updated);
+      return;
+    }
+
+    // Пустая оболочка из Mini App уступает место настоящей записи с сайта.
+    // Удаление и привязка одной транзакцией: tgUserId уникален, и между двумя
+    // отдельными запросами он оказался бы занят дважды.
+    const merged = await prisma.$transaction(async (tx) => {
+      if (mine) await tx.participant.delete({ where: { id: mine.id } });
+      return tx.participant.update({
+        where: { id: other.id },
+        data: {
+          tgUserId,
+          tgUsername: ctx.from!.username || null,
+          name: other.name || displayName(ctx),
+          telegram: other.telegram || (ctx.from!.username ? `@${ctx.from!.username}` : null),
+          lastSeenAt: new Date(),
+        },
+      });
     });
-    console.log(`[TG] привязан tg=${merged.tgUserId} к участнику ${merged.id} по телефону`);
+    console.log(`[TG] привязан tg=${tgUserId} к участнику ${merged.id} по телефону`);
     await nextStep(ctx, merged);
+    return;
+  }
+
+  if (mine) {
+    const updated = await prisma.participant.update({
+      where: { id: mine.id },
+      data: { phone, lastSeenAt: new Date() },
+    });
+    await nextStep(ctx, updated);
     return;
   }
 
   const created = await prisma.participant.create({
     data: {
-      tgUserId: String(ctx.from!.id),
+      tgUserId,
       tgUsername: ctx.from!.username || null,
       telegram: ctx.from!.username ? `@${ctx.from!.username}` : null,
       name: displayName(ctx),
@@ -279,7 +316,7 @@ bot.on('message:text', async (ctx) => {
 
   const participant = await participantOf(ctx);
 
-  if (!participant) {
+  if (!participant || !participant.phone) {
     await handlePhone(ctx, text, false);
     return;
   }
