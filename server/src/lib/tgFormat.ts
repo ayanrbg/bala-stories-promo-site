@@ -63,6 +63,36 @@ export function isAdmin(tgUserId: string): boolean {
 }
 
 /**
+ * Куда автор выкладывает видео. Ссылку разбираем по домену, голый ник считаем
+ * инстаграмным — так его пишут девять из десяти, и об этом сказано в вопросе.
+ *
+ * @returns поле `Participant` и что в него положить; null — не разобрали.
+ */
+export function parseSocial(raw: string): { field: 'instagram' | 'tiktok' | 'youtube'; value: string } | null {
+  const s = String(raw || '').trim();
+  if (!s || s.length > 200) return null;
+  const low = s.toLowerCase();
+
+  // У YouTube храним ссылку целиком: канал по @-нику опознать труднее.
+  if (low.includes('youtube.com') || low.includes('youtu.be')) return { field: 'youtube', value: s };
+  if (low.includes('tiktok.com')) return { field: 'tiktok', value: nickFromUrl(s) };
+  if (low.includes('instagram.com')) return { field: 'instagram', value: nickFromUrl(s) };
+  // t.me сюда намеренно не попадает: вопрос про площадку, где выходят видео, а
+  // телеграм-ник участника мы и так знаем из самого бота.
+  if (low.startsWith('http') || low.includes('t.me/')) return null;
+
+  const nick = s.replace(/^@/, '');
+  if (/^[A-Za-z0-9._-]{2,60}$/.test(nick)) return { field: 'instagram', value: nick };
+  return null;
+}
+
+function nickFromUrl(url: string): string {
+  const path = url.replace(/^https?:\/\//i, '').split('?')[0].split('/');
+  const nick = (path[1] || '').replace(/^@/, '');
+  return nick || url;
+}
+
+/**
  * Телефон к одному виду: +7XXXXXXXXXX. По нему бот узнаёт человека, который уже
  * зарегистрирован на сайте, — иначе он получил бы второй код и вторую строку в
  * рейтинге. «8 777 123-45-67», «+7 (777) 1234567» и «77771234567» — одно число.
