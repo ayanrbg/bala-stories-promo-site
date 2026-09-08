@@ -23,8 +23,16 @@ export const bot = new Bot<Ctx>(process.env.TG_BOT_TOKEN || '');
 
 // ─────────────────────────── клавиатуры ───────────────────────────
 
+/**
+ * Кабинет — это страница `/ugc`, открытая внутри Telegram. Вход там не
+ * спрашивается: Telegram подписывает, кто открыл, и сервер это проверяет.
+ */
+export const MINIAPP_URL = process.env.TG_MINIAPP_URL || 'https://promocode-stories.apiapp.kz/ugc';
+
 const kbJoin = () => new InlineKeyboard().text('📝 Участвовать', 'join');
-const kbStatus = () => new InlineKeyboard().text('🏆 Мой результат', 'status');
+const kbStatus = () => new InlineKeyboard()
+  .webApp('📊 Кабинет и рейтинг', MINIAPP_URL).row()
+  .text('🏆 Мой результат', 'status');
 
 /**
  * Кнопка запроса контакта. Номер присылает сам Telegram, и это единственный
@@ -111,7 +119,10 @@ async function showStatus(ctx: Ctx): Promise<void> {
   const rows = await computeStandings(ctx.contest);
   const mine = rows.find((r) => r.participantId === participant.id) || null;
 
-  await ctx.reply(t.status(ctx.contest, participant.code, mine), { parse_mode: 'HTML' });
+  await ctx.reply(t.status(ctx.contest, participant.code, mine), {
+    parse_mode: 'HTML',
+    reply_markup: new InlineKeyboard().webApp('📊 Кабинет и рейтинг', MINIAPP_URL),
+  });
 }
 
 bot.command('status', showStatus);

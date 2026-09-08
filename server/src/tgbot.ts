@@ -3,7 +3,7 @@ dotenv.config();
 
 import express from 'express';
 import { webhookCallback } from 'grammy';
-import { bot } from './bot';
+import { bot, MINIAPP_URL } from './bot';
 
 /**
  * Отдельный процесс бота (pm2 `bala-tgbot`).
@@ -70,6 +70,12 @@ async function main(): Promise<void> {
   // Явная инициализация до listen: она проверяет токен и заполняет ctx.me —
   // из него берётся имя бота для реферальных ссылок.
   await bot.init();
+
+  // Кнопка меню рядом со строкой ввода: кабинет должен открываться из любого
+  // места переписки, а не только из последнего сообщения бота.
+  await bot.api.setChatMenuButton({
+    menu_button: { type: 'web_app', text: 'Кабинет', web_app: { url: MINIAPP_URL } },
+  }).catch((e: Error) => console.error(`[TG] кнопка меню не установлена: ${e.message}`));
 
   if (WEBHOOK_URL) {
     await bot.api.setWebhook(`${WEBHOOK_URL.replace(/\/$/, '')}/tg/webhook/${SECRET}`, {

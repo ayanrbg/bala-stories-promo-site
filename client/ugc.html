@@ -231,6 +231,10 @@
   </nav>
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- Mini App: скрипт отдаёт подписанные данные о том, кто открыл страницу
+       внутри Telegram. В обычном браузере он просто ничего не делает. Грузится
+       синхронно и до ugc.js — иначе вход не увидит window.Telegram. -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="ugc.i18n.js"></script>
   <script src="ugc.js"></script>
 </body>

@@ -490,7 +490,44 @@ for (const btn of document.querySelectorAll('.lang-btn')) {
  * схему x-safari-https. Оба способа работают не везде, поэтому под кнопкой
  * остаётся копирование ссылки — оно не подводит никогда.
  */
+// ─────────────────────────── Telegram Mini App ───────────────────────────
+
+/** Страница открыта внутри Telegram и он подписал, кто это. */
+function tgWebApp() {
+  const tg = window.Telegram && window.Telegram.WebApp;
+  return tg && tg.initData ? tg : null;
+}
+
+/**
+ * Вход из Telegram. Здесь не нужно ни окон, ни писем: Telegram уже знает
+ * человека и подписывает это секретом бота, а сервер подпись проверяет.
+ *
+ * @returns участник, если вошли; null — если мы не в Telegram или подпись не
+ * подошла (тогда остаются обычные способы входа).
+ */
+async function tryTelegram() {
+  const tg = tgWebApp();
+  if (!tg) return null;
+
+  try { tg.ready(); tg.expand(); } catch { /* старая версия клиента — не беда */ }
+
+  try {
+    const data = await api('/auth/telegram', {
+      method: 'POST',
+      body: JSON.stringify({ initData: tg.initData }),
+    });
+    return data.participant;
+  } catch (e) {
+    console.warn('telegram login:', e.message);
+    return null;
+  }
+}
+
 function checkInApp() {
+  // В Telegram страница работает как задумано — плашка «откройте в браузере»
+  // там сбивала бы с толку, а вход и так уже состоялся.
+  if (tgWebApp()) return;
+
   const ua = navigator.userAgent || '';
   if (!/Instagram|FBAN|FBAV|FB_IAB|TikTok|musical_ly|Line\/|VKAndroidApp|OKApp/i.test(ua)) return;
 
@@ -523,7 +560,12 @@ async function boot() {
   applyI18n();
   checkInApp();
 
-  const byInvite = await tryInvite();
+  // Вход из Telegram идёт первым: если он сработал, ни Google, ни ссылка уже
+  // не нужны — и экран входа не мигнёт перед готовым кабинетом.
+  const byTelegram = await tryTelegram();
+  if (byTelegram) state.me = byTelegram;
+
+  const byInvite = byTelegram ? false : await tryInvite();
 
   try {
     state.info = await api('/info');
@@ -540,8 +582,8 @@ async function boot() {
     console.error('info:', e.message);
   }
 
-  // По ссылке уже вошли — второй запрос за тем же самым не нужен.
-  if (!byInvite) {
+  // Уже вошли — второй запрос за тем же самым не нужен.
+  if (!byInvite && !byTelegram) {
     try {
       const data = await api('/me');
       state.me = data.participant;
@@ -553,8 +595,8 @@ async function boot() {
 
   await loadStandings();
   renderMe();
-  // Пришёл по ссылке — показываем сразу его профиль, а не условия.
-  if (byInvite) switchTab('me');
+  // Пришёл по ссылке или из бота — показываем сразу его профиль, а не условия.
+  if (byInvite || byTelegram) switchTab('me');
 
   // Обновляем цифры, пока вкладка открыта. Сервер всё равно кэширует минуту,
   // поэтому чаще спрашивать бессмысленно.

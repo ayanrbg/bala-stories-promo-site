@@ -10,6 +10,7 @@ import {
 } from '../lib/contestSession';
 import { issueCodeFor } from '../lib/contestCode';
 import { consumeInvite, issueInviteLink, sendInviteMail, mailConfigured } from '../lib/contestInvite';
+import { verifyInitData } from '../lib/tgInitData';
 import {
   getContest,
   getStandings,
@@ -231,6 +232,62 @@ router.post('/auth/invite', rateLimit, async (req: Request, res: Response): Prom
   issueSession(res, p.id);
   console.log(`[UGC] вход по ссылке ${p.email}`);
   res.json({ ok: true, participant: publicParticipant(p) });
+});
+
+/**
+ * POST /api/contest/auth/telegram { initData } — вход из Mini App.
+ *
+ * Самый простой из трёх входов: Telegram уже знает, кто перед ним, и подписывает
+ * это секретом бота. Ни всплывающих окон Google, ни писем — то есть и белого
+ * экрана на айфоне, и плашки «откройте в браузере» здесь не бывает.
+ *
+ * Участник заводится на лету, если его ещё нет: кабинет открывают и те, кто не
+ * доходил до анкеты в боте, а страница умеет её показать. Кода у такой строки
+ * нет, в рейтинг она не попадает.
+ */
+router.post('/auth/telegram', rateLimit, async (req: Request, res: Response): Promise<void> => {
+  if (!sessionConfigured()) {
+    res.status(503).json({ error: 'auth_not_configured' });
+    return;
+  }
+
+  const r = verifyInitData(String(req.body?.initData || ''));
+  if (!r.ok) {
+    if (r.reason === 'no_token') console.error('[UGC] вход из Telegram невозможен: нет TG_BOT_TOKEN');
+    else console.warn(`[UGC] отклонён initData: ${r.reason}`);
+    res.status(r.reason === 'no_token' ? 503 : 401).json({ error: 'bad_init_data' });
+    return;
+  }
+
+  try {
+    const name = [r.user.firstName, r.user.lastName].filter(Boolean).join(' ') || r.user.username || null;
+    const existing = await prisma.participant.findUnique({ where: { tgUserId: r.user.id } });
+
+    const participant = existing
+      ? await prisma.participant.update({
+          where: { id: existing.id },
+          data: {
+            tgUsername: r.user.username || existing.tgUsername,
+            name: existing.name || name,
+            lastSeenAt: new Date(),
+          },
+        })
+      : await prisma.participant.create({
+          data: {
+            tgUserId: r.user.id,
+            tgUsername: r.user.username || null,
+            telegram: r.user.username ? `@${r.user.username}` : null,
+            name,
+          },
+        });
+
+    if (!existing) console.log(`[UGC] новый участник ${participant.id} из Telegram ${r.user.id}`);
+    issueSession(res, participant.id);
+    res.json({ ok: true, participant: publicParticipant(participant) });
+  } catch (e) {
+    console.error(`[UGC] вход из Telegram не удался ${r.user.id}: ${(e as Error).message}`);
+    res.status(500).json({ error: 'internal_error' });
+  }
 });
 
 // POST /api/contest/auth/magic { email } — прислать ссылку письмом.
