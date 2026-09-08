@@ -338,7 +338,9 @@ router.get('/export', async (_req: Request, res: Response): Promise<void> => {
       p.telegram ?? '',
       p.youtube ?? '',
       p.phone ?? '',
-      p.email,
+      // У пришедших из Telegram почты нет — в выгрузке для выплат должно быть
+      // пусто, а не слово «null».
+      p.email ?? '',
       p.disqualified ? 'да' : '',
       p.dqReason ?? '',
     ].map(csvCell).join(';'));

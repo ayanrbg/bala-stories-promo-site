@@ -1,10 +1,15 @@
-import { TgCampaign } from '@prisma/client';
-import { almatyDate, money, prizeFund, prizeTiers, timeLeft, plural, winnersTotal } from '../lib/tgCampaign';
+import { Contest } from '@prisma/client';
+import { PRIZE_FUND, WINNERS_TOTAL, StandingRow, prizeTable } from '../lib/contestStandings';
+import { almatyDate, money, plural, timeLeft } from '../lib/tgFormat';
 
 /**
- * Все тексты бота в одном файле: их правит не программист, а маркетинг, и
- * искать их по обработчикам никто не должен. Разметка — HTML, потому что
- * <code> в Telegram копируется одним нажатием, а промокод для того и нужен.
+ * Все тексты бота в одном файле: их правит не программист, а маркетинг.
+ * Разметка — HTML: <code> в Telegram копируется одним нажатием, а промокод для
+ * того и нужен.
+ *
+ * Условия конкурса нигде здесь не заданы — фонд, сетка, порог и сроки приходят
+ * из `Contest` и `contestStandings.ts`. Второго списка призов быть не должно:
+ * на сайте он однажды разъехался с настоящим, и это стоило спора об условиях.
  */
 
 /** Экранирование для мест, куда попадает чужой текст (имя, ник). */
@@ -12,155 +17,101 @@ export function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-/** «1 победитель — 100 000 ₸» построчно. Пусто, пока сетка не заведена. */
-function prizeLines(campaign: TgCampaign): string {
-  const tiers = prizeTiers(campaign);
-  if (!tiers.length) return '';
+function prizeLines(): string {
   const medals = ['🥇', '🥈', '🥉'];
-  return tiers
-    .map((t, i) => {
-      const who = t.count === 1
-        ? '1 победитель'
-        : `${t.count} ${plural(t.count, 'победитель', 'победителя', 'победителей')}`;
-      const sum = t.count === 1 ? money(t.amount) : `по ${money(t.amount)}`;
-      return `${medals[i] || '🎁'} ${who} — ${sum}`;
+  return prizeTable()
+    .map((row, i) => {
+      const place = row.fromRank === row.toRank
+        ? `${row.fromRank} место`
+        : `${row.fromRank}–${row.toRank} места`;
+      const sum = row.winners === 1 ? money(row.amount) : `по ${money(row.amount)}`;
+      return `${medals[i] || '🎁'} ${place} — ${sum}`;
     })
     .join('\n');
 }
 
-/** Шапка с фондом. Пока призы не заведены, про деньги молчим. */
-function prizeBlock(campaign: TgCampaign): string {
-  const fund = prizeFund(campaign);
-  if (!fund) return '';
-  const lines = prizeLines(campaign);
-  return `Призовой фонд — <b>${money(fund)}</b>\n${lines}\n\n`;
-}
-
-export function welcome(campaign: TgCampaign): string {
+export function terms(contest: Contest): string {
   return (
-    `🎁 <b>${esc(campaign.title)}</b>\n\n` +
-    prizeBlock(campaign) +
-    'Как участвовать:\n' +
-    '1️⃣ Установить приложение Bala Stories\n' +
-    '2️⃣ Ввести в нём промокод, который я дам\n' +
-    '3️⃣ Получить билет и ждать розыгрыша\n\n' +
-    `Приём заявок до <b>${almatyDate(campaign.endsAt)}</b> — осталось ${timeLeft(campaign)}.`
+    `🎁 <b>${esc(contest.title)}</b>\n\n` +
+    `Призовой фонд — <b>${money(PRIZE_FUND)}</b>, ` +
+    `${WINNERS_TOTAL} ${plural(WINNERS_TOTAL, 'победитель', 'победителя', 'победителей')}.\n` +
+    `${prizeLines()}\n\n` +
+    '<b>Как это работает</b>\n' +
+    '1️⃣ Вы получаете личный промокод\n' +
+    '2️⃣ Называете его в своих видео и сторис\n' +
+    '3️⃣ Зритель ставит Bala Stories и вводит ваш код — это активация\n' +
+    '4️⃣ Чем больше активаций, тем выше вы в рейтинге\n\n' +
+    `Для участия в распределении призов нужно минимум <b>${contest.minActivations}</b> ` +
+    `${plural(contest.minActivations, 'активация', 'активации', 'активаций')}.\n` +
+    `Конкурс идёт до <b>${almatyDate(contest.endsAt)}</b> — осталось ${timeLeft(contest.endsAt)}.`
   );
 }
 
-export function beforeStart(campaign: TgCampaign): string {
+export function beforeStart(contest: Contest): string {
   return (
-    `🎁 <b>${esc(campaign.title)}</b>\n\n` +
-    prizeBlock(campaign) +
-    `Приём заявок открывается ${almatyDate(campaign.startsAt)}.\n` +
-    'Возвращайтесь к этому времени — я напомню.'
+    `🎁 <b>${esc(contest.title)}</b>\n\n` +
+    `Конкурс стартует ${almatyDate(contest.startsAt)}. Возвращайтесь к этому времени.`
   );
 }
 
-export function afterEnd(campaign: TgCampaign): string {
+export function afterEnd(contest: Contest): string {
   return (
-    '⏳ Приём заявок закрыт.\n\n' +
-    `Розыгрыш прошёл ${almatyDate(campaign.endsAt)}. ` +
-    'Если вы участвовали и выиграли — я напишу вам сам, отвечать никуда не нужно.'
+    '⏳ Конкурс завершён.\n\n' +
+    `Приём активаций закрылся ${almatyDate(contest.endsAt)}. ` +
+    'Итоги зафиксированы — свой результат можно посмотреть в кабинете.'
   );
 }
 
-/** Бот собран, но кампания не опубликована: обычный человек не должен видеть черновик. */
-export const notPublished =
-  '🐣 Розыгрыш скоро начнётся.\n\n' +
-  'Подпишитесь на наши соцсети, чтобы не пропустить старт, — а пока можно просто ' +
-  'почитать сказки в приложении Bala Stories.';
+/** Бот собран, но ещё не объявлен: случайный человек не должен в него попадать. */
+export const notPublic =
+  '🐣 Конкурс скоро откроется для приёма заявок.\n\n' +
+  'Загляните чуть позже — здесь появятся условия и ваш личный промокод.';
 
-export function codeIssued(campaign: TgCampaign, code: string, taleCount: number): string {
-  const tales = taleCount
-    ? `откроются ${taleCount} ${plural(taleCount, 'сказка', 'сказки', 'сказок')} в подарок, а я`
-    : 'я';
-  return (
-    `Ваш промокод: <code>${code}</code>\n` +
-    '<i>нажмите на код, чтобы скопировать</i>\n\n' +
-    '1️⃣ Установите приложение — кнопка ниже\n' +
-    '2️⃣ Откройте его и введите этот код\n' +
-    `3️⃣ ${tales} засчитаю участие\n\n` +
-    `Код действует до ${almatyDate(campaign.endsAt)}. ` +
-    'Как только вы его введёте, я напишу сам — проверять вручную не нужно.'
-  );
-}
+/** Регистрация появится на следующем шаге; сейчас бот только показывает условия. */
+export const notRegisteredYet =
+  'Вы ещё не участвуете в конкурсе.\n\n' +
+  'Регистрация в боте вот-вот откроется. Пока получить промокод можно на сайте: ' +
+  'promocode-stories.apiapp.kz/ugc';
 
-export function status(campaign: TgCampaign, code: string | null, activated: boolean, tickets: number): string {
-  if (!code) {
-    return 'Вы ещё не получили промокод. Нажмите «Участвовать» — и я его выдам.';
-  }
+export function status(contest: Contest, code: string, row: StandingRow | null): string {
   const head = `Ваш промокод: <code>${code}</code>\n\n`;
-  if (!activated) {
+  const activations = row?.activations ?? 0;
+
+  if (!row || row.rank === null) {
     return (
       head +
-      '⏳ Пока не вижу активации.\n' +
-      'Введите код в приложении Bala Stories — билет засчитается сам, в течение минуты.\n\n' +
-      `До конца приёма заявок: ${timeLeft(campaign)}.`
+      'Активаций пока нет.\n' +
+      'Назовите код в видео — как только зритель установит приложение и введёт его, ' +
+      'я сообщу.\n\n' +
+      `До конца конкурса: ${timeLeft(contest.endsAt)}.`
     );
   }
+
+  const left = Math.max(0, contest.minActivations - activations);
+  const gate = row.qualified
+    ? '🟢 Порог пройден — вы участвуете в распределении призов.'
+    : `🔴 До порога ещё ${left} ${plural(left, 'активация', 'активации', 'активаций')}.`;
+  const prize = row.prizeAmount ? `\n💰 Приз за это место — ${money(row.prizeAmount)}.` : '';
+
   return (
     head +
-    `✅ Участие подтверждено. Билетов: <b>${tickets}</b>\n\n` +
-    `Розыгрыш ${almatyDate(campaign.endsAt)} — осталось ${timeLeft(campaign)}. ` +
-    'Победителям я напишу в этом же чате.'
-  );
-}
-
-export function activationConfirmed(campaign: TgCampaign, tickets: number): string {
-  return (
-    '✅ <b>Участие подтверждено!</b>\n\n' +
-    `Билетов у вас: <b>${tickets}</b>.\n` +
-    `Розыгрыш ${almatyDate(campaign.endsAt)} — победителям напишу прямо сюда.`
-  );
-}
-
-export function terms(campaign: TgCampaign): string {
-  const winners = winnersTotal(campaign);
-  const fund = prizeFund(campaign);
-  return (
-    '📄 <b>Условия розыгрыша</b>\n\n' +
-    (fund
-      ? `Призовой фонд — ${money(fund)}, ${winners} ${plural(winners, 'победитель', 'победителя', 'победителей')}.\n`
-      : '') +
-    `Приём заявок: до ${almatyDate(campaign.endsAt)}.\n\n` +
-    '<b>Как получить билет</b>\n' +
-    'Установить приложение Bala Stories и ввести в нём личный промокод из этого бота. ' +
-    'Один человек — один код и одна заявка.\n\n' +
-    '<b>Как определяются победители</b>\n' +
-    'После закрытия приёма заявок список участников фиксируется, и победители ' +
-    'выбираются случайным образом. Чем больше у вас билетов, тем выше шанс. ' +
-    'Организатор публикует список участников и случайное число, по которому шёл ' +
-    'выбор, — розыгрыш можно перепроверить.\n\n' +
-    '<b>Что не засчитывается</b>\n' +
-    'Повторные заявки с одного человека, чужие промокоды и накрутка установок. ' +
-    'Организатор вправе снять такого участника с розыгрыша.\n\n' +
-    'Организатор — Bala Stories. Apple и Google к розыгрышу отношения не имеют.'
-  );
-}
-
-export function inviteText(campaign: TgCampaign, link: string): string {
-  return (
-    '👥 <b>Позовите друга</b>\n\n' +
-    'Отправьте ему эту ссылку:\n' +
-    `${link}\n\n` +
-    'Когда друг установит приложение и введёт свой код, вам начислятся ' +
-    'дополнительные билеты.\n\n' +
-    `До конца приёма заявок: ${timeLeft(campaign)}.`
+    `🏆 Место: <b>${row.rank}</b>\n` +
+    `📈 Активаций: <b>${activations}</b>\n` +
+    `${gate}${prize}\n\n` +
+    `До конца конкурса: ${timeLeft(contest.endsAt)}.`
   );
 }
 
 export const help =
   'Что я умею:\n\n' +
-  '/start — условия розыгрыша\n' +
-  '/status — мой промокод и билеты\n' +
+  '/start — условия конкурса\n' +
+  '/status — мой промокод, активации и место\n' +
   '/help — это сообщение\n\n' +
-  'Если код не принимается в приложении — проверьте, что вы не вводили ' +
-  'другой промокод раньше: он бывает только один на аккаунт.';
+  'Если у вас вопрос по конкурсу — напишите нам в поддержку, я передам.';
 
 export const unknown =
   'Я понимаю только кнопки и команды: /start, /status, /help.';
 
-/** Кампании нет в базе — это ошибка настройки, а не состояние для человека. */
-export const noCampaign =
-  '🐣 Розыгрыш ещё настраивается. Загляните чуть позже.';
+/** Конкурса нет в базе — это ошибка настройки, а не состояние для человека. */
+export const noContest =
+  '🐣 Конкурс сейчас настраивается. Загляните чуть позже.';
