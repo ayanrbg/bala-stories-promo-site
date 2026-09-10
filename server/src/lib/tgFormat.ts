@@ -12,29 +12,48 @@ export function money(amount: number): string {
   return `${amount.toLocaleString('ru-RU').replace(/ /g, ' ')} ₸`;
 }
 
-/** «16 сентября, 23:59» по Алматы. */
-export function almatyDate(d: Date): string {
+export type Lang = 'ru' | 'kk';
+
+const MONTHS: Record<Lang, string[]> = {
+  ru: ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+       'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'],
+  kk: ['қаңтар', 'ақпан', 'наурыз', 'сәуір', 'мамыр', 'маусым',
+       'шілде', 'тамыз', 'қыркүйек', 'қазан', 'қараша', 'желтоқсан'],
+};
+
+/** «16 сентября, 23:59» / «16 қыркүйек, 23:59» по Алматы. */
+export function almatyDate(d: Date, lang: Lang = 'ru'): string {
   const shifted = new Date(d.getTime() + ALMATY_OFFSET_MS);
-  const months = [
-    'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
-    'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',
-  ];
   const hh = String(shifted.getUTCHours()).padStart(2, '0');
   const mm = String(shifted.getUTCMinutes()).padStart(2, '0');
-  return `${shifted.getUTCDate()} ${months[shifted.getUTCMonth()]}, ${hh}:${mm}`;
+  return `${shifted.getUTCDate()} ${MONTHS[lang][shifted.getUTCMonth()]}, ${hh}:${mm}`;
 }
 
-/** «4 дня 6 часов» — сколько осталось до момента. */
-export function timeLeft(until: Date, now = new Date()): string {
+/** «4 дня 6 часов» / «4 күн 6 сағат» — сколько осталось до момента. */
+export function timeLeft(until: Date, lang: Lang = 'ru', now = new Date()): string {
   const ms = until.getTime() - now.getTime();
-  if (ms <= 0) return 'время вышло';
+  if (ms <= 0) return lang === 'kk' ? 'уақыт бітті' : 'время вышло';
 
   const totalHours = Math.floor(ms / 3_600_000);
   const days = Math.floor(totalHours / 24);
   const hours = totalHours % 24;
-  if (days > 0) return `${days} ${plural(days, 'день', 'дня', 'дней')} ${hours} ${plural(hours, 'час', 'часа', 'часов')}`;
-  if (hours > 0) return `${hours} ${plural(hours, 'час', 'часа', 'часов')}`;
-  return `${Math.max(1, Math.floor(ms / 60_000))} мин`;
+
+  // В казахском существительное после числительного не меняется — там, где в
+  // русском три формы, здесь одна.
+  const d = lang === 'kk' ? 'күн' : plural(days, 'день', 'дня', 'дней');
+  const h = lang === 'kk' ? 'сағат' : plural(hours, 'час', 'часа', 'часов');
+
+  if (days > 0) return `${days} ${d} ${hours} ${h}`;
+  if (hours > 0) return `${hours} ${h}`;
+  const mins = Math.max(1, Math.floor(ms / 60_000));
+  return `${mins} ${lang === 'kk' ? 'минут' : 'мин'}`;
+}
+
+/** «12 активаций» / «12 белсендіру». */
+export function acts(n: number, lang: Lang): string {
+  return lang === 'kk'
+    ? `${n} белсендіру`
+    : `${n} ${plural(n, 'активация', 'активации', 'активаций')}`;
 }
 
 export function plural(n: number, one: string, few: string, many: string): string {

@@ -72,6 +72,24 @@ async function main(): Promise<void> {
   // из него берётся имя бота для реферальных ссылок.
   await bot.init();
 
+  // Список команд в меню Telegram — на обоих языках. Без него человек не знает,
+  // что у бота есть /top и /lang: кнопки живут только в последнем сообщении.
+  await bot.api.setMyCommands([
+    { command: 'start', description: 'Условия конкурса' },
+    { command: 'status', description: 'Мой промокод и место' },
+    { command: 'top', description: 'Рейтинг участников' },
+    { command: 'lang', description: 'Тіл / язык' },
+    { command: 'help', description: 'Помощь' },
+  ]).catch((e: Error) => console.error(`[TG] команды не установлены: ${e.message}`));
+
+  await bot.api.setMyCommands([
+    { command: 'start', description: 'Байқау шарттары' },
+    { command: 'status', description: 'Промокодым және орным' },
+    { command: 'top', description: 'Қатысушылар рейтингі' },
+    { command: 'lang', description: 'Тіл / язык' },
+    { command: 'help', description: 'Көмек' },
+  ], { language_code: 'kk' }).catch(() => undefined);
+
   // Кнопка меню рядом со строкой ввода: кабинет должен открываться из любого
   // места переписки, а не только из последнего сообщения бота.
   await bot.api.setChatMenuButton({

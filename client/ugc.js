@@ -60,6 +60,7 @@ function applyI18n() {
   // Всё посчитанное собирается заново: подписи там вперемешку с цифрами.
   if (state.info) renderInfo(state.info);
   tickTimer();
+  if (state.standings) paintBoards();
   if (state.me) renderMe();
   if (googleClientId && !$('stateLogin').hidden) renderGoogleButton();
 }
@@ -200,9 +201,7 @@ function renderMe() {
   renderStandings();
 }
 
-function medalFor(rank) {
-  return rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '🏆';
-}
+const medalFor = (rank) => BOARD.medal(rank);
 
 function renderStandings() {
   const s = state.standings;
@@ -257,30 +256,39 @@ function renderStandings() {
     }
   }
 
-  // Таблица. Наружу отдаются только места и цифры — имён здесь нет и не будет.
+  paintBoards();
+}
+
+/**
+ * Одна таблица рисуется в двух местах: открытая на экране условий и своя в
+ * кабинете. Разница только в том, приклеивать ли снизу собственную строку, если
+ * человек не попал в топ. Сама разметка — в board.js, общая со страницей /top.
+ */
+function paintBoard(list, empty, upd, withMe) {
+  const s = state.standings;
+  if (!s || !list) return;
+
   const rows = s.top.slice();
-  if (me && me.rank && !rows.some((r) => r.isMe)) rows.push(me);
+  if (withMe && s.me && s.me.rank && !rows.some((r) => r.isMe)) rows.push(s.me);
 
-  const max = Math.max(1, ...rows.map((r) => r.activations));
-  $('boardEmpty').hidden = rows.length > 0;
-  $('board').innerHTML = rows.map((r) => `
-    <li class="${r.isMe ? 'me' : ''}">
-      <span class="bg" style="width:${Math.max(4, (r.activations / max) * 100)}%"></span>
-      <span class="pos">${r.rank <= 3 ? medalFor(r.rank) : r.rank}</span>
-      <span class="name">${r.isMe ? t('board.you') : ''}</span>
-      <span class="val">${num(r.activations)}</span>
-    </li>`).join('');
+  BOARD.paint(list, empty, upd, {
+    rows,
+    finalized: s.finalized,
+    computedAt: s.computedAt,
+    t, num, locale: locale(),
+  });
+}
 
-  $('updated').textContent = s.finalized
-    ? t('board.frozen')
-    : t('board.updated', {
-        time: new Date(s.computedAt).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' }),
-      });
+function paintBoards() {
+  paintBoard($('board'), $('boardEmpty'), $('updated'), true);
+  paintBoard($('boardPublic'), $('boardPublicEmpty'), $('updatedPublic'), false);
 }
 
 async function loadStandings() {
   try {
     state.standings = await api('/standings');
+    // Открытая таблица рисуется всегда: её видит и тот, кто ещё не вошёл.
+    paintBoards();
     if (state.me && state.me.code) renderStandings();
   } catch (e) {
     // Молча: цифры важны, но не настолько, чтобы выкидывать человека из кабинета.
@@ -628,8 +636,10 @@ async function boot() {
 
   // Обновляем цифры, пока вкладка открыта. Сервер всё равно кэширует минуту,
   // поэтому чаще спрашивать бессмысленно.
+  // Обновляем, пока вкладка открыта, на любом экране: рейтинг теперь виден и
+  // на условиях. Сервер всё равно кэширует минуту, чаще спрашивать бессмысленно.
   setInterval(() => {
-    if (!document.hidden && !$('screenMe').hidden) loadStandings();
+    if (!document.hidden) loadStandings();
   }, 60_000);
 }
 

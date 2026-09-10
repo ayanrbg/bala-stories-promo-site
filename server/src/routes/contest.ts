@@ -480,8 +480,12 @@ router.get('/standings', async (req: Request, res: Response): Promise<void> => {
     const standings = await getStandings(contest);
     const meId = req.participantId || null;
 
+    // Ник — то, чем рейтинг стал открытым (решение заказчика 08.09.2026).
+    // Код и внутренний id по-прежнему наружу не уходят: подпись публичная,
+    // промокод — нет.
     const strip = (r: StandingRow) => ({
       rank: r.rank,
+      nick: r.nick,
       activations: r.activations,
       qualified: r.qualified,
       prizeAmount: r.prizeAmount,

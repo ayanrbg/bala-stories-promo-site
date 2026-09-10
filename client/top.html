@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0d0a1d">
+  <title>Рейтинг конкурса «Мама UGC» · Bala</title>
+  <!-- Страницу кидают в сторис и чаты, поэтому карточка ссылки важнее индексации. -->
+  <meta name="robots" content="noindex">
+  <meta property="og:title" content="Рейтинг конкурса «Мама UGC»">
+  <meta property="og:description" content="Кто ведёт в конкурсе авторов Bala Stories — живой рейтинг активаций.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Manrope:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="ugc.css">
+</head>
+<body>
+  <div class="sky" aria-hidden="true"></div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <header class="hero">
+    <div class="lang" id="lang">
+      <button class="lang-btn" type="button" data-lang="ru">RUS</button>
+      <button class="lang-btn" type="button" data-lang="kk">KAZ</button>
+    </div>
+
+    <p class="kicker" data-i18n="hero.kicker">Bala · конкурс для авторов</p>
+    <h1>Мама<span class="hero-ugc">UGC</span></h1>
+    <p class="hero-prize"><span id="prizeFund">210 000</span> ₸ <span data-i18n="hero.prize">призовой фонд</span></p>
+
+    <div class="timer" id="timer">
+      <p class="timer-label" id="timerLabel">&nbsp;</p>
+      <div class="timer-tiles">
+        <div class="tile"><b id="tDays">—</b><span data-i18n="timer.days">дней</span></div>
+        <div class="tile"><b id="tHours">—</b><span data-i18n="timer.hours">часов</span></div>
+        <div class="tile"><b id="tMins">—</b><span data-i18n="timer.mins">минут</span></div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="screen">
+      <div class="card reveal" style="--d:0ms">
+        <h2 class="card-title"><span data-i18n="board.title">Рейтинг</span><span class="upd" id="updatedPublic"></span></h2>
+        <ul class="board" id="boardPublic"></ul>
+        <p class="board-empty muted" id="boardPublicEmpty" hidden data-i18n="board.empty">Активаций пока нет ни у кого. Первое видео решает всё.</p>
+        <p class="board-note muted" data-i18n="board.note">Рейтинг открытый: ник, место и активации видны всем.</p>
+      </div>
+
+      <div class="card reveal" style="--d:60ms">
+        <h2 class="card-title" data-i18n="rules.cond.title">Условие допуска</h2>
+        <p class="big-condition"><b id="minAct">20</b> <span data-i18n="rules.cond.acts">активаций</span></p>
+        <p class="muted" data-i18n="rules.dates.note">Считаются только активации внутри этих дат. После окончания места фиксируются и больше не меняются.</p>
+        <p class="dates" id="dates">—</p>
+      </div>
+
+      <div class="card card-prizes reveal" style="--d:120ms">
+        <h2 class="card-title" data-i18n="rules.prizes.title">Призы</h2>
+        <ul class="prizes" id="prizes"></ul>
+        <p class="prize-total"><span data-i18n="rules.prizes.total">Всего победителей</span><b id="winnersTotal">14</b></p>
+      </div>
+
+      <div class="card card-login reveal" style="--d:180ms">
+        <p class="muted" data-i18n="board.cta">Хотите в этот список? Получите свой промокод — это две минуты.</p>
+        <a class="btn btn-gold" href="/ugc" data-i18n="top.join">Участвовать</a>
+      </div>
+    </section>
+  </main>
+
+  <script src="ugc.i18n.js"></script>
+  <script src="board.js"></script>
+  <script src="top.js"></script>
+</body>
+</html>

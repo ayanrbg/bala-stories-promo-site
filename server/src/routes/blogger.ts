@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { authenticateToken, requireRole } from '../middleware/auth';
+import { fairyProxy } from '../lib/fairyProxy';
+import { referralQuery } from '../lib/referralSettings';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -95,6 +97,21 @@ router.get('/stats', async (req: Request, res: Response): Promise<void> => {
     appStats,
     daily
   });
+});
+
+// Реферальная статистика блогера — считает Fairy, потому что оплаты знает он.
+// bloggerId подставляет сервер: из адреса его брать нельзя, иначе блогер
+// посмотрел бы чужие цифры, поменяв параметр в браузере.
+//
+// Награда считается по первым оплатам, пока в настройках не включены продления;
+// сами продления уже собираются и включаются переключателем, а не сбором заново.
+router.get('/referrals', async (req: Request, res: Response): Promise<void> => {
+  const query = await referralQuery({
+    bloggerId: req.user!.id,
+    from: req.query.from as string | undefined,
+    to: req.query.to as string | undefined,
+  });
+  fairyProxy(req, res, '/api/admin/referrals/summary', query);
 });
 
 export default router;

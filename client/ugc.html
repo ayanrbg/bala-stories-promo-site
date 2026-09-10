@@ -55,7 +55,16 @@
   <main>
     <!-- ─────────── экран 1: условия ─────────── -->
     <section class="screen" id="screenRules">
+      <!-- Открытый рейтинг: видно всем и до входа. Стоит первым — это главное,
+           ради чего на страницу заходят повторно. -->
       <div class="card reveal" style="--d:0ms">
+        <h2 class="card-title"><span data-i18n="board.title">Рейтинг</span><span class="upd" id="updatedPublic"></span></h2>
+        <ul class="board" id="boardPublic"></ul>
+        <p class="board-empty muted" id="boardPublicEmpty" hidden data-i18n="board.empty">Активаций пока нет ни у кого. Первое видео решает всё.</p>
+        <p class="board-note muted" data-i18n="board.note">Рейтинг открытый: ник, место и активации видны всем.</p>
+      </div>
+
+      <div class="card reveal" style="--d:60ms">
         <h2 class="card-title" data-i18n="rules.how.title">Как участвовать</h2>
         <ol class="steps">
           <li data-i18n="rules.how.1"><b>Снимите видео</b> с приложением Bala и расскажите про него своей аудитории.</li>
@@ -64,25 +73,25 @@
         </ol>
       </div>
 
-      <div class="card reveal" style="--d:60ms">
+      <div class="card reveal" style="--d:120ms">
         <h2 class="card-title" data-i18n="rules.cond.title">Условие допуска</h2>
         <p class="big-condition"><b id="minAct">30</b> <span data-i18n="rules.cond.acts">активаций</span></p>
         <p class="muted" data-i18n="rules.cond.note">Столько раз ваш код должен быть введён в приложении за время конкурса. Чем больше активаций — тем выше место.</p>
       </div>
 
-      <div class="card card-prizes reveal" style="--d:120ms">
+      <div class="card card-prizes reveal" style="--d:180ms">
         <h2 class="card-title" data-i18n="rules.prizes.title">Призы</h2>
         <ul class="prizes" id="prizes"></ul>
         <p class="prize-total"><span data-i18n="rules.prizes.total">Всего победителей</span><b id="winnersTotal">16</b></p>
       </div>
 
-      <div class="card reveal" style="--d:180ms">
+      <div class="card reveal" style="--d:240ms">
         <h2 class="card-title" data-i18n="rules.dates.title">Сроки</h2>
         <p class="dates" id="dates">—</p>
         <p class="muted" data-i18n="rules.dates.note">Считаются только активации внутри этих дат. После окончания места фиксируются и больше не меняются.</p>
       </div>
 
-      <p class="legal reveal" style="--d:240ms" data-i18n="legal.agree">
+      <p class="legal reveal" style="--d:300ms" data-i18n="legal.agree">
         Участвуя, вы соглашаетесь с <a href="/terms.html">условиями</a> и
         <a href="/privacy.html">политикой конфиденциальности</a>.
       </p>
@@ -236,6 +245,7 @@
        синхронно и до ugc.js — иначе вход не увидит window.Telegram. -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="ugc.i18n.js"></script>
+  <script src="board.js"></script>
   <script src="ugc.js"></script>
 </body>
 </html>

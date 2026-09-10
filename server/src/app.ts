@@ -63,6 +63,12 @@ app.get('/ugc', (_req, res) => {
   res.sendFile(path.join(__dirname, '../../client/ugc.html'));
 });
 
+// Открытый рейтинг без входа и без кабинета: эту ссылку кидают в сторис и чаты,
+// поэтому она отдельная и короткая.
+app.get('/top', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../../client/top.html'));
+});
+
 // Правовые страницы: на них ссылается экран согласия Google, поэтому адреса
 // должны пережить любую перестройку кабинета.
 app.get('/privacy', (_req, res) => {

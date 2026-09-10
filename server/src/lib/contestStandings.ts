@@ -63,9 +63,35 @@ export function prizeFor(rank: number, qualified: boolean): { tier: number | nul
   return { tier: null, amount: null };
 }
 
+/**
+ * Как участник подписан в открытом рейтинге. Берётся первая заполненная сеть —
+ * ту, что человек назвал первой, он и считает основной. Имя из анкеты идёт
+ * последним: «Айгуль» в таблице опознать труднее, чем @aigul.mama.
+ */
+export function nickOf(p: {
+  instagram?: string | null;
+  tiktok?: string | null;
+  telegram?: string | null;
+  youtube?: string | null;
+  name?: string | null;
+}): string | null {
+  if (p.instagram) return `@${p.instagram}`;
+  if (p.tiktok) return `@${p.tiktok}`;
+  if (p.telegram) return p.telegram.startsWith('@') ? p.telegram : `@${p.telegram}`;
+  if (p.youtube) {
+    const handle = p.youtube.match(/@([A-Za-z0-9._-]{2,60})/);
+    if (handle) return `@${handle[1]}`;
+    const last = p.youtube.split('?')[0].replace(/\/+$/, '').split('/').pop();
+    return last ? last.slice(0, 60) : 'YouTube';
+  }
+  return p.name || null;
+}
+
 export interface StandingRow {
   participantId: string;
   code: string;
+  /** Ник для открытого рейтинга; null — человек не назвал ни сети, ни имени. */
+  nick: string | null;
   activations: number;
   /** null = активаций нет, места ещё нет. Ноль — это не «последнее место». */
   rank: number | null;
@@ -150,7 +176,10 @@ export async function computeStandings(contest: Contest): Promise<StandingRow[]>
   const [participants, byCode] = await Promise.all([
     prisma.participant.findMany({
       where: { code: { not: null }, disqualified: false },
-      select: { id: true, code: true },
+      select: {
+        id: true, code: true, name: true,
+        instagram: true, tiktok: true, telegram: true, youtube: true,
+      },
     }),
     activationsByCode(contest),
   ]);
@@ -160,6 +189,7 @@ export async function computeStandings(contest: Contest): Promise<StandingRow[]>
     return {
       participantId: p.id,
       code: p.code as string,
+      nick: nickOf(p),
       activations: hit ? Number(hit.bindings) || 0 : 0,
       // Только для сортировки: наружу время чужих активаций не отдаём.
       lastBindAt: hit?.lastBindAt ? Date.parse(hit.lastBindAt) : Number.MAX_SAFE_INTEGER,
@@ -185,6 +215,7 @@ export async function computeStandings(contest: Contest): Promise<StandingRow[]>
     return {
       participantId: r.participantId,
       code: r.code,
+      nick: r.nick,
       activations: r.activations,
       rank,
       qualified,
@@ -196,13 +227,21 @@ export async function computeStandings(contest: Contest): Promise<StandingRow[]>
 
 /** Снимок после фиксации. */
 async function frozenStandings(contest: Contest): Promise<StandingRow[]> {
+  // Ник в снимок не пишется: он живёт у участника и может смениться, а
+  // подпись в таблице итогов должна показывать нынешнюю, а не позавчерашнюю.
   const rows = await prisma.contestResult.findMany({
     where: { contestId: contest.id },
     orderBy: { rank: 'asc' },
+    include: {
+      participant: {
+        select: { name: true, instagram: true, tiktok: true, telegram: true, youtube: true },
+      },
+    },
   });
   return rows.map((r) => ({
     participantId: r.participantId,
     code: r.code,
+    nick: nickOf(r.participant),
     activations: r.activations,
     rank: r.rank,
     qualified: r.qualified,

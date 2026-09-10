@@ -2,6 +2,7 @@ import { Contest, Participant, PrismaClient } from '@prisma/client';
 import { InlineKeyboard } from 'grammy';
 import * as t from './texts';
 import { bot, MINIAPP_URL } from './index';
+import { Lang } from '../lib/tgFormat';
 import { StandingRow, WINNERS_TOTAL, getContest, getStandings } from '../lib/contestStandings';
 
 const prisma = new PrismaClient();
@@ -26,17 +27,23 @@ const THREE_DAYS_MS = 3 * 24 * 60 * 60_000;
 /** Пауза между отправками: у Telegram лимит около 30 сообщений в секунду. */
 const SEND_GAP_MS = 60;
 
-const kb = () => new InlineKeyboard().webApp('📊 Кабинет и рейтинг', MINIAPP_URL);
+const kb = (lang: Lang) => new InlineKeyboard().webApp(t.btn(lang, 'cabinet'), MINIAPP_URL);
+
+/** Уведомление приходит на том языке, который человек выбрал в боте. */
+async function langOf(tgUserId: string): Promise<Lang> {
+  const pref = await prisma.tgPref.findUnique({ where: { tgUserId } });
+  return pref?.lang === 'kk' ? 'kk' : 'ru';
+}
 
 /**
  * @returns true, если сообщение ушло. Заблокировавшего бота помечаем и больше
  * не трогаем — иначе каждый цикл будет писать в лог одну и ту же ошибку.
  */
-async function send(p: Participant, text: string): Promise<boolean> {
+async function send(p: Participant, text: string, lang: Lang): Promise<boolean> {
   try {
     await bot.api.sendMessage(p.tgUserId as string, text, {
       parse_mode: 'HTML',
-      reply_markup: kb(),
+      reply_markup: kb(lang),
     });
     return true;
   } catch (e) {
@@ -67,7 +74,8 @@ export function pickMessage(
   contest: Contest,
   p: Participant,
   row: StandingRow | null,
-  now: number
+  now: number,
+  lang: Lang = 'ru'
 ): { text: string; reminder?: string } | null {
   const activations = row?.activations ?? 0;
   const rank = row?.rank ?? null;
@@ -75,7 +83,7 @@ export function pickMessage(
   // Итоги — один раз и вместо всего остального.
   if (contest.finalizedAt) {
     if (p.remindersSent.includes('results')) return null;
-    return { text: t.notifyResults(row), reminder: 'results' };
+    return { text: t.notifyResults(lang, row), reminder: 'results' };
   }
 
   const delta = activations - p.notifiedActivations;
@@ -83,20 +91,20 @@ export function pickMessage(
 
   if (delta > 0 && gapOk) {
     if (p.notifiedActivations < contest.minActivations && activations >= contest.minActivations) {
-      return { text: t.notifyThreshold(activations, contest) };
+      return { text: t.notifyThreshold(lang, activations, contest) };
     }
     // Про место пишем только когда оно улучшилось и попало в призовую часть:
     // «вы на 47 месте вместо 48» никого не радует.
     if (rank && p.notifiedRank && rank < p.notifiedRank && rank <= WINNERS_TOTAL) {
-      return { text: t.notifyRankUp(rank, activations, row?.prizeAmount ?? null), };
+      return { text: t.notifyRankUp(lang, rank, activations, row?.prizeAmount ?? null) };
     }
-    return { text: t.notifyActivations(delta, activations, contest) };
+    return { text: t.notifyActivations(lang, delta, activations, contest) };
   }
 
   // Напоминание за три дня — независимо от паузы: оно одно на весь конкурс.
   const leftMs = contest.endsAt.getTime() - now;
   if (leftMs > 0 && leftMs <= THREE_DAYS_MS && !p.remindersSent.includes('3d')) {
-    return { text: t.notifyThreeDays(contest, activations, rank), reminder: '3d' };
+    return { text: t.notifyThreeDays(lang, contest, activations, rank), reminder: '3d' };
   }
 
   return null;
@@ -131,10 +139,11 @@ async function tick(): Promise<void> {
       continue;
     }
 
-    const message = pickMessage(contest, p, row, now);
+    const lang = await langOf(p.tgUserId as string);
+    const message = pickMessage(contest, p, row, now, lang);
     if (!message) continue;
 
-    const delivered = await send(p, message.text);
+    const delivered = await send(p, message.text, lang);
     if (!delivered) continue;
 
     await prisma.participant.update({
