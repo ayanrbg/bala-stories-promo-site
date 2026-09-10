@@ -81,6 +81,22 @@ async function setLang(tgUserId: string, lang: Lang): Promise<void> {
   });
 }
 
+/** Выбирал ли человек язык хоть раз. Пока нет — первый экран будет про язык. */
+async function hasLangChoice(tgUserId: string): Promise<boolean> {
+  return !!(await prisma.tgPref.findUnique({ where: { tgUserId }, select: { tgUserId: true } }));
+}
+
+/**
+ * Языков всего два, поэтому «сменить язык» — это переключатель, а не выбор из
+ * списка: лишний экран между нажатием и результатом ничего не уточняет.
+ */
+async function toggleLang(ctx: Ctx): Promise<Lang> {
+  const next: Lang = ctx.lang === 'kk' ? 'ru' : 'kk';
+  await setLang(String(ctx.from!.id), next);
+  ctx.lang = next;
+  return next;
+}
+
 // ─────────────────────────── общий вход ───────────────────────────
 
 bot.use(async (ctx, next) => {
@@ -147,7 +163,18 @@ async function showTerms(ctx: Ctx): Promise<void> {
   await ctx.reply(t.terms(lang, contest), { parse_mode: 'HTML', reply_markup: keyboard });
 }
 
-bot.command('start', showTerms);
+/**
+ * Первый экран нового человека — язык, и только потом условия. Догадка по
+ * языку клиента Telegram ошибается ровно там, где это обиднее всего: в Казахстане
+ * телефон сплошь и рядом настроен по-русски у того, кто говорит по-казахски.
+ */
+bot.command('start', async (ctx) => {
+  if (!(await hasLangChoice(String(ctx.from!.id)))) {
+    await ctx.reply(t.langAsk(ctx.lang), { reply_markup: kbLang() });
+    return;
+  }
+  await showTerms(ctx);
+});
 
 /** Код, активации и место. Рейтинг тот же, что на сайте. */
 async function showStatus(ctx: Ctx): Promise<void> {
@@ -197,7 +224,9 @@ async function showTop(ctx: Ctx): Promise<void> {
 bot.command('top', showTop);
 
 bot.command('lang', async (ctx) => {
-  await ctx.reply(t.langAsk(ctx.lang), { reply_markup: kbLang() });
+  const next = await toggleLang(ctx);
+  await ctx.reply(t.langChanged(next));
+  await showTerms(ctx);
 });
 
 // Команды объявляются ДО общего обработчика текста: он ловит и их тоже, и
@@ -222,17 +251,21 @@ bot.callbackQuery('top', async (ctx) => {
   await showTop(ctx);
 });
 
+/** Кнопка «сменить язык» переключает сразу: подтверждение уходит всплывающей
+ *  подсказкой, а не отдельным сообщением — иначе на каждое нажатие копится
+ *  переписка из служебных строк. */
 bot.callbackQuery('lang', async (ctx) => {
-  await ack(ctx);
-  await ctx.reply(t.langAsk(ctx.lang), { reply_markup: kbLang() });
+  const next = await toggleLang(ctx);
+  await ctx.answerCallbackQuery({ text: t.langChanged(next) }).catch(() => undefined);
+  await showTerms(ctx);
 });
 
+// Выбор из двух кнопок остался только на первом запуске.
 bot.callbackQuery(/^lang:(ru|kk)$/, async (ctx) => {
-  await ack(ctx);
   const lang = ctx.match![1] as Lang;
   await setLang(String(ctx.from.id), lang);
   ctx.lang = lang;
-  await ctx.reply(t.langChanged(lang));
+  await ctx.answerCallbackQuery({ text: t.langChanged(lang) }).catch(() => undefined);
   await showTerms(ctx);
 });
 
