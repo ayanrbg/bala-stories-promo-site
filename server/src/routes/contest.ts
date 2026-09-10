@@ -283,7 +283,12 @@ router.post('/auth/telegram', rateLimit, async (req: Request, res: Response): Pr
 
     if (!existing) console.log(`[UGC] новый участник ${participant.id} из Telegram ${r.user.id}`);
     issueSession(res, participant.id);
-    res.json({ ok: true, participant: publicParticipant(participant) });
+
+    // Язык, выбранный в боте. Отдаём только осознанный выбор: если человек
+    // ничего не переключал, страница остаётся при своём — иначе мы затёрли бы
+    // язык, выбранный раньше на сайте.
+    const pref = await prisma.tgPref.findUnique({ where: { tgUserId: r.user.id } });
+    res.json({ ok: true, participant: publicParticipant(participant), lang: pref?.lang || null });
   } catch (e) {
     console.error(`[UGC] вход из Telegram не удался ${r.user.id}: ${(e as Error).message}`);
     res.status(500).json({ error: 'internal_error' });
@@ -316,6 +321,35 @@ router.post('/auth/magic', rateLimit, async (req: Request, res: Response): Promi
 
   // Ответ одинаковый в любом случае: иначе по нему можно проверять, кто
   // участвует в конкурсе.
+  res.json({ ok: true });
+});
+
+/**
+ * POST /api/contest/lang { lang } — язык, выбранный на странице.
+ *
+ * Нужен ради одной вещи: человек переключил язык в кабинете внутри Telegram —
+ * и бот должен заговорить так же. Иначе две поверхности одного продукта спорят
+ * друг с другом. Пишем только тем, у кого есть телеграм: у остальных язык живёт
+ * в браузере и серверу не нужен.
+ */
+router.post('/lang', requireParticipant, async (req: Request, res: Response): Promise<void> => {
+  const lang = String(req.body?.lang || '');
+  if (lang !== 'ru' && lang !== 'kk') {
+    res.status(400).json({ error: 'bad_lang' });
+    return;
+  }
+
+  const p = await prisma.participant.findUnique({
+    where: { id: req.participantId! },
+    select: { tgUserId: true },
+  });
+  if (p?.tgUserId) {
+    await prisma.tgPref.upsert({
+      where: { tgUserId: p.tgUserId },
+      update: { lang },
+      create: { tgUserId: p.tgUserId, lang },
+    });
+  }
   res.json({ ok: true });
 });
 

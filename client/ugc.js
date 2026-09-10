@@ -46,6 +46,13 @@ function setLang(next) {
   lang = next;
   localStorage.setItem('ugc_lang', next);
   applyI18n();
+
+  // Внутри Telegram язык общий с ботом: переключили здесь — бот тоже заговорит
+  // так же. Ошибку глотаем: язык страницы уже сменился, и падать из-за того,
+  // что не доехала синхронизация, незачем.
+  if (tgWebApp()) {
+    api('/lang', { method: 'POST', body: JSON.stringify({ lang: next }) }).catch(() => undefined);
+  }
 }
 
 function applyI18n() {
@@ -526,6 +533,13 @@ async function tryTelegram() {
       method: 'POST',
       body: JSON.stringify({ initData: tg.initData }),
     });
+    // Язык, выбранный в боте, важнее сохранённого в браузере: человек только
+    // что переключил его в том же продукте, на соседнем экране.
+    if (data.lang && LANGS.includes(data.lang) && data.lang !== lang) {
+      lang = data.lang;
+      localStorage.setItem('ugc_lang', lang);
+      applyI18n();
+    }
     return data.participant;
   } catch (e) {
     console.warn('telegram login:', e.message);
