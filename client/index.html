@@ -216,22 +216,41 @@
         <h2>Аналитика <span class="hint">зеркало Firebase-событий приложения</span></h2>
         <div class="inline-form">
           <select id="an-platform" class="input-sm">
-            <option value="">Все платформы</option>
-            <option value="editor">🧪 editor (тест)</option>
+            <option value="real" selected>📱 Реальные устройства</option>
+            <option value="all">Все, включая Editor</option>
             <option value="ios">iOS</option>
             <option value="android">Android</option>
+            <option value="editor">🧪 только editor (наши тесты)</option>
           </select>
           <select id="an-range" class="input-sm">
             <option value="1">1 час</option>
             <option value="24" selected>24 часа</option>
             <option value="168">7 дней</option>
             <option value="720">30 дней</option>
+            <option value="2160">90 дней</option>
           </select>
           <label class="checkbox-label"><input type="checkbox" id="an-auto"> авто 10с</label>
           <button id="an-refresh-btn" class="btn btn-outline">Обновить</button>
         </div>
       </div>
       <p id="an-status" class="hint"></p>
+
+      <!-- Воронка: куда деваются люди. Считается в людях (сессии/устройства),
+           а не в событиях — счётчик событий на этот вопрос не отвечает. -->
+      <div class="an-cols">
+        <div class="an-panel">
+          <h3 class="an-panel-title">Путь до контента
+            <span class="hint">сколько людей дошло до каждого шага</span></h3>
+          <label class="checkbox-label" style="margin-bottom:12px;display:inline-block">
+            <input type="checkbox" id="an-by-user"> считать по устройствам, а не по сессиям</label>
+          <div id="an-funnel-read" class="funnel-chart"></div>
+        </div>
+        <div class="an-panel">
+          <h3 class="an-panel-title">Где теряем</h3>
+          <div id="an-loss" class="loss-grid"></div>
+          <div id="an-missing"></div>
+        </div>
+      </div>
 
       <!-- KPI cards -->
       <div class="kpi-grid" id="an-kpi"></div>
@@ -261,6 +280,13 @@
         </div>
       </div>
 
+      <!-- Постраничный отвал: строится по самой дальней странице сессии. -->
+      <div class="an-panel" style="margin-bottom:18px">
+        <h3 class="an-panel-title">Где бросают читать
+          <span class="hint">нажми на сказку, чтобы увидеть всю кривую</span></h3>
+        <div id="an-drops"></div>
+      </div>
+
       <!-- Live feed (collapsible) -->
       <details class="an-live" open>
         <summary class="section-title an-summary">Живой поток событий <span class="hint">что реально прислал клиент</span></summary>
@@ -277,8 +303,10 @@
       </details>
 
       <details class="an-legend">
-        <summary>Легенда: какие события шлёт клиент в зеркало (8 имён)</summary>
-        <p class="hint">Только эти события приходят в наш backend. Всё остальное (открытия сказок, страницы, озвучка…) — только в Firebase GA4. Незнакомое имя <span class="badge badge-used">?</span> = возможно опечатка в билде.</p>
+        <summary>Легенда и здоровье данных <span class="hint">что означает каждое событие и можно ли верить цифрам</span></summary>
+        <p class="hint">Незнакомое имя <span class="badge badge-used">?</span> = возможно опечатка в билде. Firebase GA4 остаётся источником правды, здесь — наша копия.</p>
+        <div id="an-quality" class="loss-grid" style="margin-bottom:14px"></div>
+        <div id="an-builds" style="margin-bottom:14px"></div>
         <table class="data-table">
           <thead><tr><th>Событие</th><th>Смысл</th></tr></thead>
           <tbody id="an-legend-body"></tbody>
