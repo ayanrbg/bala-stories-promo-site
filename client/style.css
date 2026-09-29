@@ -734,3 +734,88 @@ details[open] > .an-summary::before { content: '▾ '; }
 .log-stack { margin: 4px 0 0; padding: 6px 8px; background: var(--bg-input); border-radius: 6px; color: var(--text-muted); white-space: pre-wrap; word-break: break-word; font-size: 11.5px; max-height: 220px; overflow: auto; }
 .log-meta { color: var(--text-muted); font-size: 11px; margin-top: 3px; }
 .log-meta code { background: var(--bg-input); padding: 1px 5px; border-radius: 4px; }
+
+/* ===== Push tab ===== */
+.push-langs { margin-bottom: 14px; }
+.push-lang-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+.push-lang-tag { display: inline-block; width: 26px; font-weight: 600; color: var(--accent); text-transform: uppercase; }
+.push-l-title { width: 200px; flex: 0 0 auto; }
+.push-l-body {
+  flex: 1; padding: 8px 10px; background: var(--bg-input);
+  border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+}
+.push-l-body:focus { outline: none; border-color: var(--accent); }
+.push-segment { background: var(--bg-input); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+.push-segment .inline-form { margin-bottom: 8px; flex-wrap: wrap; }
+.push-segment .inline-form:last-child { margin-bottom: 0; }
+.push-seg-days { width: 90px; }
+.push-seg-user { width: 260px; }
+.push-seg-sep { color: var(--text-muted); }
+.push-aud { color: var(--text-muted); font-size: 13px; }
+.badge.push-st { background: var(--bg-input); color: var(--text-muted); border: 1px solid var(--border); }
+.push-st-sent { color: var(--success); border-color: var(--success); }
+.push-st-sending { color: var(--accent); border-color: var(--accent); }
+.push-st-failed { color: var(--danger); border-color: var(--danger); }
+.push-st-draft { color: var(--text); }
+
+/* Выбор сказок для реферального промокода — галочками из реального каталога */
+.tp-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 6px 16px;
+  margin: 8px 0 18px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.tp-tale { display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; }
+.tp-tale input { margin: 0; }
+
+/* ===== Воронка «где отсеиваются люди» и постраничный отвал ===== */
+
+/* Плитки потерь: маленькие KPI, которые читаются как список утечек. */
+.loss-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.loss-tile { background: var(--bg-input); border: 1px solid var(--border); border-radius: 9px; padding: 11px 12px; }
+.loss-val { font-size: 21px; font-weight: 700; line-height: 1.1; color: var(--text); }
+.loss-val.warn { color: #f59e0b; }
+.loss-val.bad { color: var(--danger); }
+.loss-val.ok { color: var(--success); }
+.loss-label { font-size: 11.5px; color: var(--text-muted); margin-top: 4px; line-height: 1.3; }
+@media (max-width: 560px) { .loss-grid { grid-template-columns: 1fr; } }
+
+/* Шаг воронки, который нечем измерить: приглушён и подписан, чтобы ноль не
+   читался как «все отвалились». */
+.funnel-row-off { opacity: .45; }
+.funnel-bar-off { background: var(--border); }
+
+/* Сколько человек потеряно между шагами — главная цифра на экране. */
+.funnel-lost { font-size: 12px; color: var(--danger); margin-top: 4px; }
+
+/* Вторая и третья по силе страницы отвала — жёлтым, самая сильная — красным
+   (.ret-drop уже есть выше). */
+.ret-fill.ret-drop-warm { background: linear-gradient(90deg, #d97706, #f59e0b); }
+
+/* Строка сказки в таблице отвала кликабельна — открывает кривую. */
+.an-drop-row { cursor: pointer; }
+.an-drop-row:hover { background: var(--bg-input); }
+
+/* Удержание по дням */
+.an-ret-sub { margin: 20px 0 10px; }
+.an-ret-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.an-ret-days { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.an-ret-kpi { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+@media (max-width: 760px) { .an-ret-kpi { grid-template-columns: repeat(2, 1fr); } }
+.an-ret-bars { display: flex; align-items: flex-end; gap: 6px; height: 150px; overflow-x: auto; padding-top: 6px; }
+.an-ret-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; min-width: 22px; height: 100%; }
+.an-ret-bar { width: 14px; border-radius: 3px 3px 0 0; background: #8b5cf6; transition: height .4s ease; }
+.an-ret-val { font-size: 10px; color: var(--text); }
+.an-ret-cell.an-ret-zero { color: var(--text-muted); opacity: .6; }
+.an-ret-table-wrap { overflow-x: auto; }
+.an-ret-table th, .an-ret-table td { text-align: center; padding: 6px 7px; white-space: nowrap; }
+.an-ret-table th:first-child, .an-ret-table td:first-child { text-align: left; }
+.an-ret-cell { font-size: 12px; font-variant-numeric: tabular-nums; min-width: 30px; }
+.an-ret-cell.an-ret-today { opacity: .45; font-style: italic; }
+.an-ret-cell.an-ret-thin { outline: 1px dashed #f59e0b; outline-offset: -3px; }
+.an-ret-avg td { font-weight: 700; border-bottom: 2px solid var(--border); }

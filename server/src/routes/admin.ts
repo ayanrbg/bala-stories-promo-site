@@ -432,4 +432,22 @@ router.delete('/referrals/user/:userId', (req: Request<{ userId: string }>, res:
   fairyProxy(req, res, `/api/admin/referrals/${encodeURIComponent(req.params.userId)}`, '');
 });
 
+// ─────────────── «Книга в подарок»: личные коды пользователей ───────────────
+// Отдельно от рефералки блогеров, а не колонкой в её отчётах: там код
+// принадлежит блогеру и живёт в базе этого сайта, здесь — пользователю и живёт
+// в бэкенде продукта. Смешав их, мы показали бы блогеру чужие цифры.
+//
+// Настроек у этого отчёта нет — ни окна атрибуции, ни продлений: подарок
+// начисляется в момент ввода кода и от оплат не зависит. Поэтому query идёт
+// от браузера как есть (from/to/limit), без referralQuery().
+router.get('/referrals/gift', (req: Request, res: Response): void => {
+  fairyProxy(req, res, '/api/admin/referrals/gift');
+});
+
+// Разбор жалобы «ввёл код друга, книги нет»: его код, кого привёл (с причиной,
+// если книги не досталось), кем приглашён сам, последние попытки ввода.
+router.get('/referrals/gift/user/:userId', (req: Request<{ userId: string }>, res: Response): void => {
+  fairyProxy(req, res, `/api/admin/referrals/gift/user/${encodeURIComponent(req.params.userId)}`, '');
+});
+
 export default router;

@@ -9,6 +9,12 @@ import { authenticateToken, requireRole } from '../middleware/auth';
 const router = Router();
 router.use(authenticateToken, requireRole('admin'));
 
+// Воронка, дочитывание и здоровье данных — всё, что нужно вкладке «Аналитика»,
+// чтобы отвечать на вопрос «где отсеиваются люди», а не только «сколько событий».
+router.get('/funnel', (req, res) => fairyProxy(req, res, '/api/analytics/funnel'));
+router.get('/reading', (req, res) => fairyProxy(req, res, '/api/analytics/reading'));
+router.get('/health', (req, res) => fairyProxy(req, res, '/api/analytics/health'));
+router.get('/retention', (req, res) => fairyProxy(req, res, '/api/analytics/retention'));
 router.get('/summary', (req, res) => fairyProxy(req, res, '/api/analytics/summary'));
 router.get('/events', (req, res) => fairyProxy(req, res, '/api/analytics/events'));
 router.get('/insights', (req, res) => fairyProxy(req, res, '/api/analytics/insights'));

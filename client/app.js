@@ -802,14 +802,30 @@ function renderLogs(list) {
 // Reads the read-only mirror through our own BFF (/api/analytics/* → Fairy).
 // Firebase GA4 stays the source of truth; this is the quick in-site view.
 const AN_EVENTS = {
-  paywall_view:     'Показан пейволл',
-  paywall_dismiss:  'Пейволл закрыт без покупки',
-  purchase_start:   'Нажата кнопка покупки',
-  purchase_success: 'Покупка подтверждена',
-  purchase_error:   'Ошибка/отмена покупки',
-  purchase_restore: 'Восстановление покупок',
-  promo_redeem:     'Активирован промокод',
-  tale_complete:    'Сказка дочитана до конца'
+  app_open:            'Запуск приложения',
+  onboarding_start:    'Показан первый экран онбординга',
+  onboarding_step:     'Завершён шаг онбординга',
+  onboarding_complete: 'Онбординг пройден',
+  library_view:        'Открыт экран библиотеки',
+  tale_card_click:     'Тап по карточке сказки',
+  tale_open:           'Открыт ридер сказки',
+  tale_page_view:      'Показана страница сказки',
+  tale_complete:       'Сказка дочитана до конца',
+  tale_abandon:        'Выход из ридера до конца',
+  narration_play:      'Запущена озвучка',
+  paywall_view:        'Показан пейволл',
+  paywall_dismiss:     'Пейволл закрыт без покупки',
+  purchase_start:      'Нажата кнопка покупки',
+  purchase_success:    'Покупка подтверждена',
+  purchase_error:      'Ошибка/отмена покупки',
+  purchase_restore:    'Восстановление покупок',
+  promo_redeem:        'Активирован промокод',
+  promo_entered:       'Введён промокод',
+  gift_popup_view:     'Открыта панель «Книга в подарок»',
+  gift_code_copied:    'Скопирован свой промокод',
+  gift_earned:         'Подарочная книга начислена',
+  app_error:           'Негромкая ошибка в приложении',
+  content_missing:     'Контент сказки не докачан'
 };
 // Where paywalls are triggered from (source param) — readable labels.
 const AN_SOURCE_LABELS = {
@@ -848,6 +864,7 @@ function anMax(arr) { return Math.max.apply(null, [1].concat(arr)); }
 async function loadAnalytics() {
   const status = document.getElementById('an-status');
   if (status) status.textContent = 'Загрузка…';
+  loadAnRetention();
   const since = encodeURIComponent(anSince());
   try {
     const platform = document.getElementById('an-platform').value;
@@ -861,10 +878,17 @@ async function loadAnalytics() {
       (userF ? '&userId=' + encodeURIComponent(userF) : '');
     const results = await Promise.all([
       api('/analytics/insights?since=' + since + platQ),
-      api(evQuery)
+      api(evQuery),
+      api('/analytics/funnel?since=' + since + platQ),
+      api('/analytics/reading?since=' + since + platQ),
+      api('/analytics/health?since=' + since + platQ)
     ]);
     const ins = results[0] || {};
     const events = results[1] || [];
+    anFunnelData = results[2] || null;
+    renderAnFunnelRead();
+    renderAnDrops(results[3]);
+    renderAnHealth(results[4]);
     renderAnKpi(ins.totals || {});
     renderAnFunnel(ins.funnel || {});
     renderAnDaily(ins.daily || []);
@@ -989,18 +1013,27 @@ function renderAllTales() {
     });
   }
   list.sort(function (a, b) {
-    const ca = (anTaleStats[a.id] && anTaleStats[a.id].completions) || 0;
-    const cb = (anTaleStats[b.id] && anTaleStats[b.id].completions) || 0;
+    const ca = (anReading[a.id] && anReading[a.id].readers) || (anTaleStats[a.id] && anTaleStats[a.id].completions) || 0;
+    const cb = (anReading[b.id] && anReading[b.id].readers) || (anTaleStats[b.id] && anTaleStats[b.id].completions) || 0;
     if (cb !== ca) return cb - ca;
     return (a.title || '').localeCompare(b.title || '', 'ru');
   });
   if (!anCatalog.length) { el.innerHTML = '<p class="hint">Загрузка каталога…</p>'; return; }
   if (!list.length) { el.innerHTML = '<p class="hint">Ничего не найдено.</p>'; return; }
   el.innerHTML = list.map(function (t) {
+    // Из /reading: читали / дочитали / где бросают — полезнее, чем одно число.
+    const rd = anReading[t.id];
     const st = anTaleStats[t.id];
-    const stat = st && st.completions
-      ? '<div class="tale-stat">📖 ' + st.completions + ' дочит. · ⏱ ' + anFmtDur(st.avg_duration_ms) + '</div>'
-      : '<div class="tale-stat muted-id">нет дочитываний</div>';
+    let stat;
+    if (rd) {
+      const worst = rd.worstDrops.length ? ' · 🔻 стр. ' + (rd.worstDrops[0].page + 1) : '';
+      stat = '<div class="tale-stat">👁 ' + rd.readers + ' · 📖 ' + rd.completions +
+        (rd.completionRate != null ? ' (' + rd.completionRate + '%)' : '') + worst + '</div>';
+    } else if (st && st.completions) {
+      stat = '<div class="tale-stat">📖 ' + st.completions + ' дочит. · ⏱ ' + anFmtDur(st.avg_duration_ms) + '</div>';
+    } else {
+      stat = '<div class="tale-stat muted-id">нет чтений за период</div>';
+    }
     const soon = t.comingSoon ? '<span class="tale-badge">скоро</span>' : '';
     return '<div class="tale-card" onclick="openTaleAnalytics(\'' + esc(t.id) + '\')" title="Открыть детальную аналитику">' +
       '<div class="tale-cover" style="background-image:url(\'' + anThumb(t.id) + '\')">' + soon + '</div>' +
@@ -1055,34 +1088,60 @@ function renderTaleAnalytics(d) {
     anKpiCard('✅', (t.completionRate != null ? t.completionRate + '%' : '—'), 'Доля дочитавших') +
     anKpiCard('⏱', anFmtDur(t.avgDurationMs), 'Ср. время чтения');
 
-  // Retention curve
-  const reach = d.pageReach || [];
+  // Кривая дочитывания. Берём её из /analytics/reading: там она построена по
+  // самой дальней странице сессии, поэтому монотонна и читается как «осталось
+  // столько-то человек». Сырой pageReach из /tale/:id считает каждую страницу
+  // отдельно, и при листании назад-вперёд кривая скачет. Он остаётся запасным
+  // вариантом, если сказку ещё не видел /reading.
   const retEl = document.getElementById('an-tale-retention');
-  if (!reach.length) {
-    retEl.innerHTML = '<p class="hint">Нет постраничных событий за период. Появится, когда клиент начнёт слать <code>tale_open</code> / <code>tale_page_view</code> / <code>tale_abandon</code> в зеркало (добавлено в тикет клиенту).</p>';
+  const rd = anReading[d.taleId];
+  if (rd && rd.curve && rd.curve.length) {
+    const worst = {};
+    rd.worstDrops.forEach(function (w, i) { worst[w.page] = i === 0 ? ' ret-drop' : ' ret-drop-warm'; });
+    retEl.innerHTML =
+      '<p class="hint" style="margin:0 0 10px">Читали <b>' + rd.readers + '</b>, дочитали <b>' + rd.completions +
+      '</b>' + (rd.completionRate != null ? ' (' + rd.completionRate + '%)' : '') + '.' +
+      (rd.worstDrops.length
+        ? ' Сильнее всего бросают на ' + rd.worstDrops.map(function (w) {
+            return 'стр. ' + (w.page + 1) + ' (ушло ' + w.droppedHere + ', это ' + w.dropPct + '% дошедших)';
+          }).join(', ') + '.'
+        : ' Резких обрывов нет.') + '</p>' +
+      rd.curve.map(function (c) {
+        const w = Math.max(c.pct, c.reached ? 2 : 0);
+        return '<div class="ret-row"><span class="ret-page">стр. ' + (c.page + 1) + '</span>' +
+          '<div class="ret-track"><div class="ret-fill' + (worst[c.page] || '') + '" style="width:' + w + '%"></div></div>' +
+          '<span class="ret-val">' + c.reached + ' <span class="muted-id">(' + c.pct + '%)</span>' +
+          (c.droppedHere ? ' <span class="loss-val bad" style="font-size:12px">−' + c.droppedHere + '</span>' : '') +
+          '</span></div>';
+      }).join('');
   } else {
-    const map = {};
-    reach.forEach(function (r) { map[r.page] = r.sessions; });
-    const maxPage = Math.max.apply(null, reach.map(function (r) { return r.page; }));
-    const pages = t.totalPages || (maxPage + 1);
-    const base = map[0] || Math.max.apply(null, reach.map(function (r) { return r.sessions; })) || 1;
-    let html = '';
-    for (let p = 0; p < pages; p++) {
-      const s = map[p] || 0;
-      const pct = base > 0 ? Math.round(s / base * 100) : 0;
-      const w = Math.max(s / base * 100, s ? 2 : 0);
-      const drop = p > 0 && (map[p - 1] || 0) > 0 && s < (map[p - 1] || 0);
-      html += '<div class="ret-row"><span class="ret-page">стр. ' + p + '</span>' +
-        '<div class="ret-track"><div class="ret-fill' + (drop ? ' ret-drop' : '') + '" style="width:' + w + '%"></div></div>' +
-        '<span class="ret-val">' + s + ' <span class="muted-id">(' + pct + '%)</span></span></div>';
+    const reach = d.pageReach || [];
+    if (!reach.length) {
+      retEl.innerHTML = '<p class="hint">Нет постраничных событий за период. Появится, когда клиент начнёт слать <code>tale_open</code> / <code>tale_page_view</code> / <code>tale_abandon</code> в зеркало (добавлено в тикет клиенту).</p>';
+    } else {
+      const map = {};
+      reach.forEach(function (r) { map[r.page] = r.sessions; });
+      const maxPage = Math.max.apply(null, reach.map(function (r) { return r.page; }));
+      const pages = t.totalPages || (maxPage + 1);
+      const base = map[0] || Math.max.apply(null, reach.map(function (r) { return r.sessions; })) || 1;
+      let html = '';
+      for (let p = 0; p < pages; p++) {
+        const s = map[p] || 0;
+        const pct = base > 0 ? Math.round(s / base * 100) : 0;
+        const w = Math.max(s / base * 100, s ? 2 : 0);
+        const drop = p > 0 && (map[p - 1] || 0) > 0 && s < (map[p - 1] || 0);
+        html += '<div class="ret-row"><span class="ret-page">стр. ' + (p + 1) + '</span>' +
+          '<div class="ret-track"><div class="ret-fill' + (drop ? ' ret-drop' : '') + '" style="width:' + w + '%"></div></div>' +
+          '<span class="ret-val">' + s + ' <span class="muted-id">(' + pct + '%)</span></span></div>';
+      }
+      retEl.innerHTML = html;
     }
-    retEl.innerHTML = html;
   }
 
   // Exit pages
   const exEl = document.getElementById('an-tale-exits');
   exEl.innerHTML = (d.exits && d.exits.length)
-    ? anBarList(d.exits.map(function (e) { return { count: e.exits, page: e.page }; }), function (x) { return 'стр. ' + x.page; })
+    ? anBarList(d.exits.map(function (e) { return { count: e.exits, page: e.page }; }), function (x) { return 'стр. ' + (x.page + 1); })
     : '<p class="hint">Нет данных о выходах (tale_abandon).</p>';
 
   // Dwell per page (time, not count → custom render)
@@ -1091,12 +1150,240 @@ function renderTaleAnalytics(d) {
     const dmax = Math.max.apply(null, [1].concat(d.dwell.map(function (x) { return x.avg_dwell_ms; })));
     dwEl.innerHTML = d.dwell.map(function (x) {
       const w = Math.max(x.avg_dwell_ms / dmax * 100, 3);
-      return '<div class="bar-row"><span class="bar-label">стр. ' + x.page + '</span>' +
+      return '<div class="bar-row"><span class="bar-label">стр. ' + (x.page + 1) + '</span>' +
         '<div class="bar-track"><div class="bar-fill" style="width:' + w + '%"></div></div>' +
         '<span class="bar-count">' + anFmtDur(x.avg_dwell_ms) + '</span></div>';
     }).join('');
   } else {
     dwEl.innerHTML = '<p class="hint">Нет данных о времени на странице.</p>';
+  }
+}
+
+
+// ---- Воронка «где отсеиваются люди» ----
+// Всё считается в людях (сессиях или устройствах), а не в событиях: счётчик
+// событий не отвечает на вопрос «сколько человек ушло», а именно он и нужен.
+// Шаг, событие которого ни разу не пришло, показывается серым с пометкой
+// «клиент не шлёт» — иначе «никто не дошёл» неотличимо от «нечем измерить».
+let anFunnelData = null;
+let anReading = {};   // tale_id -> кривая дочитывания из /analytics/reading
+
+function anFunnelSteps(steps, unit) {
+  if (!steps || !steps.length) return '<p class="hint">Нет данных за период</p>';
+  const live = steps.filter(function (s) { return !s.missing; });
+  const max = anMax(live.map(function (s) { return s[unit]; }));
+  return steps.map(function (s) {
+    if (s.missing) {
+      return '<div class="funnel-row funnel-row-off">' +
+        '<div class="funnel-head"><span class="funnel-name">' + esc(s.label) + '</span>' +
+        '<span class="funnel-pct">клиент не шлёт</span></div>' +
+        '<div class="funnel-bar-wrap"><div class="funnel-bar funnel-bar-off" style="width:3%"></div></div></div>';
+    }
+    const w = Math.max(s[unit] / max * 100, 3);
+    let sub = '';
+    if (s.pctOfTop != null) sub = s.pctOfTop + '% от начала';
+    if (s.pctOfPrev != null) sub += ' · ' + s.pctOfPrev + '% от прошлого шага';
+    const lost = s.lost > 0
+      ? '<div class="funnel-lost">↓ потеряли ' + s.lost +
+        (s.pctOfPrev != null ? ' (' + (100 - s.pctOfPrev) + '%)' : '') + '</div>'
+      : '';
+    return '<div class="funnel-row">' +
+      '<div class="funnel-head"><span class="funnel-name">' + esc(s.label) + '</span>' +
+      '<span class="funnel-pct">' + esc(sub) + '</span></div>' +
+      '<div class="funnel-bar-wrap"><div class="funnel-bar f2" style="width:' + w + '%">' + s[unit] + '</div></div>' +
+      lost + '</div>';
+  }).join('');
+}
+
+function anLossTile(val, label, tone) {
+  return '<div class="loss-tile"><div class="loss-val ' + (tone || '') + '">' + esc(String(val)) + '</div>' +
+    '<div class="loss-label">' + esc(label) + '</div></div>';
+}
+
+function renderAnFunnelRead() {
+  const el = document.getElementById('an-funnel-read');
+  if (!el || !anFunnelData) return;
+  const byUserEl = document.getElementById('an-by-user');
+  const unit = byUserEl && byUserEl.checked ? 'users' : 'sessions';
+  el.innerHTML = anFunnelSteps(anFunnelData.reading, unit);
+
+  const t = anFunnelData.totals || {};
+  const lossEl = document.getElementById('an-loss');
+  if (lossEl) {
+    lossEl.innerHTML =
+      anLossTile(t.sessions || 0, 'сессий за период') +
+      anLossTile(t.users || 0, 'устройств') +
+      anLossTile(t.neverOpenedTale || 0, 'не открыли ни одной сказки', t.neverOpenedTale ? 'warn' : '') +
+      anLossTile(t.quitMidway || 0, 'открыли, но не дочитали', t.quitMidway ? 'bad' : '') +
+      anLossTile(t.paywallNoAction || 0, 'закрыли пейволл без действия', t.paywallNoAction ? 'warn' : '') +
+      anLossTile(t.purchaseFailed || 0, 'покупка сорвалась', t.purchaseFailed ? 'bad' : '') +
+      anLossTile(t.giftPopup || 0, 'открыли «книгу в подарок»') +
+      anLossTile(t.appErrors || 0, 'сессий с ошибкой', t.appErrors ? 'bad' : '');
+  }
+
+  const missEl = document.getElementById('an-missing');
+  if (missEl) {
+    const top = ['app_open', 'onboarding_start', 'onboarding_complete', 'library_view', 'tale_card_click'];
+    const miss = (anFunnelData.missingEvents || []).filter(function (n) { return top.indexOf(n) >= 0; });
+    missEl.innerHTML = miss.length
+      ? '<p class="hint" style="margin-top:14px">Верх воронки слепой: клиент не шлёт ' +
+        miss.map(function (n) { return '<code>' + esc(n) + '</code>'; }).join(', ') +
+        '. Пока их нет, не видно, сколько людей ушло, не добравшись до первой сказки — см. тикет CLIENT_TICKET_ANALYTICS_FUNNEL.md.</p>'
+      : '';
+  }
+}
+
+// ---- Постраничный отвал по всем сказкам ----
+// Кривая строится по самой дальней странице сессии, поэтому она монотонна и
+// страница, на которой она обрывается, и есть страница, где человек ушёл.
+function renderAnDrops(data) {
+  anReading = {};
+  const tales = (data && data.tales) || [];
+  tales.forEach(function (t) { anReading[t.tale] = t; });
+  const el = document.getElementById('an-drops');
+  if (!el) return;
+  if (!tales.length) {
+    el.innerHTML = '<p class="hint">Нет постраничных событий (<code>tale_page_view</code>) за период.</p>';
+    return;
+  }
+  el.innerHTML = '<table class="data-table"><thead><tr>' +
+    '<th>Сказка</th><th>Читали</th><th>Дочитали</th><th>Страниц</th>' +
+    '<th>Половина уходит к</th><th>Сильнее всего бросают</th></tr></thead><tbody>' +
+    tales.map(function (t) {
+      const worst = t.worstDrops.length
+        ? t.worstDrops.map(function (w) {
+            return 'стр. ' + (w.page + 1) + ' <span class="muted-id">(−' + w.droppedHere + ')</span>';
+          }).join(', ')
+        : '<span class="muted-id">резких обрывов нет</span>';
+      const rate = t.completionRate != null ? t.completionRate + '%' : '—';
+      const rateCls = (t.completionRate != null && t.completionRate < 25) ? ' loss-val bad' : ' muted-id';
+      return '<tr class="an-drop-row" data-tale="' + esc(t.tale) + '" title="Открыть кривую дочитывания">' +
+        '<td>' + esc(anTitles[t.tale] || t.tale) + '</td>' +
+        '<td>' + t.readers + '</td>' +
+        '<td>' + t.completions + ' <span class="' + rateCls + '">' + rate + '</span></td>' +
+        '<td>' + t.totalPages + '</td>' +
+        '<td>' + (t.medianExitPage != null ? 'стр. ' + (t.medianExitPage + 1) : '<span class="muted-id">все дочитывают</span>') + '</td>' +
+        '<td>' + worst + '</td></tr>';
+    }).join('') + '</tbody></table>';
+  Array.prototype.forEach.call(el.querySelectorAll('.an-drop-row'), function (tr) {
+    tr.addEventListener('click', function () { openTaleAnalytics(tr.getAttribute('data-tale')); });
+  });
+}
+
+// ---- Удержание по дням ----
+// Когорта — зарегистрировались в один день и в тот же день прислали событие.
+// Клетка — доля когорты, у которой было хоть одно событие ровно через N дней.
+// Грузится отдельно от остальной вкладки: у неё своё окно когорт, и если она
+// упадёт, остальная аналитика всё равно покажется.
+const AN_RET_COLS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 21, 30];
+const AN_RET_THIN = 30; // меньше стольких людей в базе — процент ненадёжен
+
+async function loadAnRetention() {
+  const el = document.getElementById('an-ret-table');
+  if (!el) return;
+  const platform = document.getElementById('an-platform').value;
+  const days = document.getElementById('an-ret-days').value;
+  try {
+    const d = await api('/analytics/retention?maxDay=30&days=' + encodeURIComponent(days) +
+      (platform ? '&platform=' + encodeURIComponent(platform) : ''));
+    renderAnRetention(d || {});
+  } catch (e) {
+    el.innerHTML = '<p class="hint">Не удалось загрузить удержание: ' + esc(e.message) + '</p>';
+  }
+}
+
+function anRetDay(d) {
+  const wd = new Date(d + 'T00:00:00Z').toLocaleDateString('ru', { weekday: 'short', timeZone: 'UTC' });
+  return d.slice(8) + '.' + d.slice(5, 7) + ' <span class="muted-id">' + esc(wd) + '</span>';
+}
+function anRetCell(active, base, extraCls, title) {
+  const pct = base > 0 ? active / base * 100 : 0;
+  const a = pct > 0 ? 0.14 + Math.min(pct / 40, 1) * 0.7 : 0;
+  return '<td class="an-ret-cell' + (extraCls || '') + (active ? '' : ' an-ret-zero') + '" style="background:rgba(139,92,246,' + a.toFixed(2) + ')" title="' + esc(title) + '">' +
+    (pct > 0 && pct < 1 ? '&lt;1' : Math.round(pct)) + '</td>';
+}
+
+function renderAnRetention(d) {
+  const summary = d.summary || [];
+  const cohorts = d.cohorts || [];
+  const maxDay = d.maxDay || 30;
+
+  const kpi = document.getElementById('an-ret-kpi');
+  kpi.innerHTML = [1, 3, 7, 14, 30].filter(function (n) { return n <= maxDay; }).map(function (n) {
+    const s = summary[n] || {};
+    if (s.pct == null) return anLossTile('—', 'день ' + n + ': ни у одной когорты ещё не прошёл');
+    return anLossTile(s.pct + '%', 'день ' + n + ': вернулись ' + s.active + ' из ' + s.users,
+      s.users < AN_RET_THIN ? 'warn' : '');
+  }).join('');
+
+  const curve = document.getElementById('an-ret-curve');
+  const pts = summary.filter(function (s) { return s.n >= 1 && s.pct != null && s.users >= AN_RET_THIN; });
+  if (!pts.length) {
+    curve.innerHTML = '<p class="hint">Мало данных: ни на один день после регистрации ещё не набралось ' + AN_RET_THIN + ' человек в базе.</p>';
+  } else {
+    const max = anMax(pts.map(function (s) { return s.pct; }));
+    curve.innerHTML = '<div class="an-ret-bars">' + pts.map(function (s) {
+      const h = Math.max(s.pct / max * 110, s.pct ? 3 : 0);
+      return '<div class="an-ret-col" title="День ' + s.n + ': вернулись ' +
+        s.active + ' из ' + s.users + ' (' + s.pct + '%), когорт: ' + s.cohorts + '">' +
+        '<span class="an-ret-val">' + (s.pct < 1 && s.pct > 0 ? '&lt;1' : Math.round(s.pct)) + '</span>' +
+        '<div class="an-ret-bar" style="height:' + h + 'px"></div>' +
+        '<span class="daily-date">' + s.n + '</span></div>';
+    }).join('') + '</div>';
+  }
+
+  const table = document.getElementById('an-ret-table');
+  if (!cohorts.length) {
+    table.innerHTML = '<p class="hint">Нет новых пользователей за выбранное окно.</p>';
+  } else {
+    const cols = AN_RET_COLS.filter(function (n) { return n <= maxDay; });
+    const avg = '<tr class="an-ret-avg"><td>Среднее</td><td>' + ((summary[0] || {}).users || 0) + '</td>' +
+      cols.map(function (n) {
+        const s = summary[n] || {};
+        if (s.pct == null) return '<td class="an-ret-cell"></td>';
+        return anRetCell(s.active, s.users, s.users < AN_RET_THIN ? ' an-ret-thin' : '',
+          'Вернулись ' + s.active + ' из ' + s.users + ' (' + s.pct + '%), когорт: ' + s.cohorts);
+      }).join('') + '</tr>';
+    const rows = cohorts.map(function (c) {
+      return '<tr><td>' + anRetDay(c.date) + '</td><td>' + c.size + '</td>' +
+        cols.map(function (n) {
+          if (n >= c.active.length) return '<td class="an-ret-cell"></td>';
+          const today = c.lastIsToday && n === c.active.length - 1;
+          return anRetCell(c.active[n], c.size, today ? ' an-ret-today' : '',
+            c.active[n] + ' из ' + c.size + (today ? ' — день ещё идёт' : ''));
+        }).join('') + '</tr>';
+    }).join('');
+    table.innerHTML = '<table class="data-table an-ret-table"><thead><tr><th>Когорта</th><th>Новых</th>' +
+      cols.map(function (n) { return '<th>' + n + '</th>'; }).join('') +
+      '</tr></thead><tbody>' + avg + rows + '</tbody></table>';
+  }
+
+  const fmt = function (x) { return x ? x.slice(8) + '.' + x.slice(5, 7) : '—'; };
+  document.getElementById('an-ret-note').innerHTML =
+    'Когорта — зарегистрировались в этот день и в тот же день открыли приложение. «Вернулся на день N» — ' +
+    'хоть одно событие ровно через N дней. Дни по времени ' + esc(d.tz || 'Asia/Almaty') + '. ' +
+    'Когорты с ' + fmt(d.from) + ' (зеркало событий пишется с ' + fmt(d.mirrorStart) + ', раньше активность не видна). ' +
+    'Бледная клетка — сегодняшний, ещё не закончившийся день. Где в базе меньше ' + AN_RET_THIN +
+    ' человек, процент ненадёжен: такие дни не попадают в кривую, а в строке «Среднее» и на плитках помечены жёлтым. Firebase считает от first_open, так что цифры могут немного расходиться.';
+}
+
+// ---- Здоровье данных ----
+function renderAnHealth(h) {
+  if (!h || !h.quality) return;
+  const qEl = document.getElementById('an-quality');
+  if (qEl) {
+    qEl.innerHTML =
+      anLossTile(h.quality.total, 'событий за период') +
+      anLossTile(h.quality.anonPct + '%', 'без userId', h.quality.anonPct > 20 ? 'warn' : '') +
+      anLossTile(h.quality.noSessionEvents, 'без session', h.quality.noSessionEvents ? 'bad' : '') +
+      anLossTile((h.unknownNames || []).length, 'незнакомых имён', (h.unknownNames || []).length ? 'bad' : 'ok') +
+      anLossTile(h.storage.retentionDays + ' дн.', 'глубина хранения');
+  }
+  const bEl = document.getElementById('an-builds');
+  if (bEl) {
+    bEl.innerHTML = '<div class="sub-title">Платформы и версии сборок</div>' +
+      anBarList((h.platforms || []).map(function (p) { return { count: p.events, _p: p }; }),
+        function (x) { return x._p.platform + ' · v' + x._p.app_version; });
   }
 }
 
@@ -1133,6 +1420,8 @@ function renderAnLegend() {
   if (q('an-apply-btn')) q('an-apply-btn').addEventListener('click', loadAnalytics);
   if (q('an-range')) q('an-range').addEventListener('change', loadAnalytics);
   if (q('an-platform')) q('an-platform').addEventListener('change', loadAnalytics);
+  if (q('an-by-user')) q('an-by-user').addEventListener('change', renderAnFunnelRead);
+  if (q('an-ret-days')) q('an-ret-days').addEventListener('change', loadAnRetention);
   if (q('an-auto')) q('an-auto').addEventListener('change', function (e) {
     if (anAutoTimer) { clearInterval(anAutoTimer); anAutoTimer = null; }
     if (e.target.checked) { anAutoTimer = setInterval(loadAnalytics, 10000); loadAnalytics(); }
@@ -1627,6 +1916,159 @@ async function saveReferralSettings() {
   if (tq('tp-create-btn')) tq('tp-create-btn').addEventListener('click', saveTalePromo);
   if (tq('tp-refresh-btn')) tq('tp-refresh-btn').addEventListener('click', function () { tpResetForm(); loadTalePromos(); });
   if (tq('rs-save-btn')) tq('rs-save-btn').addEventListener('click', saveReferralSettings);
+})();
+
+// ─────────────────── «Книга в подарок» за приглашённого друга ───────────────────
+// Цифры считает бэкенд продукта: личные коды живут там, а не в базе этого сайта.
+
+// Исходы ввода кода на человеческом языке. Список закрытый — он же контракт
+// бэкенда; неизвестный исход показываем как есть, чтобы новый код не пропал молча.
+var GIFT_RESULTS = {
+  ok:           'книга начислена',
+  self:         'ввёл свой собственный код',
+  already_used: 'уже вводил промокод раньше',
+  not_found:    'такого кода нет — опечатка либо подбор',
+  exhausted:    'подарочные сказки кончились, приглашение засчитано',
+  daily_limit:  'потолок за сутки, приглашение засчитано',
+  ip_limit:     'потолок на один адрес, приглашение засчитано',
+  test:         'отладочный код (SAME4/DEAD4)'
+};
+
+function giftPeriodQuery() {
+  var parts = [];
+  var from = tq('gift-from') && tq('gift-from').value;
+  var to = tq('gift-to') && tq('gift-to').value;
+  if (from) parts.push('from=' + encodeURIComponent(from));
+  if (to) parts.push('to=' + encodeURIComponent(to));
+  return parts.length ? '?' + parts.join('&') : '';
+}
+
+async function loadGifts() {
+  var note = tq('gift-note');
+  try {
+    var d = await api('/admin/referrals/gift' + giftPeriodQuery());
+
+    tq('gift-stat-codes').textContent = d.codesIssued;
+    tq('gift-stat-invited').textContent = d.invited;
+    tq('gift-stat-granted').textContent = d.giftsGranted;
+    tq('gift-stat-paid').textContent = d.inviteesWhoPaid;
+
+    // Разрыв между приглашениями и книгами — первое, о чём спросят, поэтому он
+    // объясняется сразу, а не оставляется на догадку по двум числам.
+    var gap = d.invited - d.giftsGranted;
+    if (note) {
+      note.textContent = gap > 0
+        ? 'Приглашений на ' + gap + ' больше, чем книг: столько раз книга не досталась — причина в таблице ниже.'
+        : 'Каждое приглашение закончилось книгой.';
+    }
+
+    renderGiftAttempts(d.attempts || {});
+    renderGiftTop(d.topInviters || []);
+  } catch (e) {
+    if (note) note.textContent = 'не загрузилось: ' + e.message;
+  }
+}
+
+function renderGiftAttempts(attempts) {
+  var tbody = tq('gift-attempts-body');
+  if (!tbody) return;
+  var rows = Object.keys(attempts).sort(function (a, b) { return attempts[b] - attempts[a]; });
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="3" class="hint">кодов пока не вводили</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(function (k) {
+    return '<tr>' +
+      '<td><code>' + esc(k) + '</code></td>' +
+      '<td>' + attempts[k] + '</td>' +
+      '<td class="hint">' + esc(GIFT_RESULTS[k] || 'неизвестный исход') + '</td>' +
+      '</tr>';
+  }).join('');
+}
+
+function renderGiftTop(rows) {
+  var tbody = tq('gift-top-body');
+  if (!tbody) return;
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="hint">пока никто никого не пригласил</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(function (r) {
+    return '<tr>' +
+      '<td>' + (r.code ? '<code>' + esc(r.code) + '</code>' : '—') + '</td>' +
+      '<td><code>' + esc(r.inviterId) + '</code></td>' +
+      '<td>' + r.invited + '</td>' +
+      '<td>' + r.gifts + '</td>' +
+      '<td><button class="btn btn-sm" onclick="showGiftUser(\'' + esc(r.inviterId) + '\')">Разбор</button></td>' +
+      '</tr>';
+  }).join('');
+}
+
+async function showGiftUser(userId) {
+  var box = tq('gift-user-result');
+  if (!box) return;
+  if (userId && tq('gift-user-input')) tq('gift-user-input').value = userId;
+  var id = userId || (tq('gift-user-input') && tq('gift-user-input').value || '').trim();
+  if (!id) { box.innerHTML = '<p class="hint">введите userId</p>'; return; }
+
+  box.innerHTML = '<p class="hint">загружаю…</p>';
+  try {
+    var d = await api('/admin/referrals/gift/user/' + encodeURIComponent(id));
+    var html = '';
+
+    html += '<p>Личный код: ' + (d.code ? '<code>' + esc(d.code) + '</code>' : '<span class="hint">не выдан</span>');
+    if (d.codeIssuedAt) html += ' <span class="hint">с ' + new Date(d.codeIssuedAt).toLocaleDateString('ru') + '</span>';
+    html += '</p>';
+
+    if (d.invitedBy) {
+      html += '<p>Его самого пригласил <code>' + esc(d.invitedBy.inviterId) + '</code> кодом <code>' +
+        esc(d.invitedBy.code) + '</code> ' + new Date(d.invitedBy.at).toLocaleDateString('ru') +
+        '. <span class="hint">Вводившему код книга не полагается — она уходит пригласившему.</span></p>';
+    }
+
+    html += '<h4>Кого привёл (' + d.invited.length + ')</h4>';
+    if (!d.invited.length) {
+      html += '<p class="hint">никого</p>';
+    } else {
+      html += '<table class="data-table"><thead><tr><th>Кто</th><th>Книга</th><th>Когда</th></tr></thead><tbody>';
+      html += d.invited.map(function (i) {
+        var book = i.taleId
+          ? '<code>' + esc(i.taleId) + '</code>'
+          : '<span class="hint">нет — ' + esc(GIFT_RESULTS[i.skipReason] || i.skipReason || 'причина не записана') + '</span>';
+        return '<tr><td><code>' + esc(i.inviteeId) + '</code></td><td>' + book + '</td><td>' +
+          new Date(i.at).toLocaleString('ru') + '</td></tr>';
+      }).join('');
+      html += '</tbody></table>';
+    }
+
+    html += '<h4>Его попытки ввода (' + d.attempts.length + ')</h4>';
+    if (!d.attempts.length) {
+      html += '<p class="hint">не вводил ничего</p>';
+    } else {
+      html += '<table class="data-table"><thead><tr><th>Код</th><th>Исход</th><th>Адрес</th><th>Сборка</th><th>Когда</th></tr></thead><tbody>';
+      html += d.attempts.map(function (a) {
+        return '<tr>' +
+          '<td><code>' + esc(a.code || '—') + '</code></td>' +
+          '<td>' + esc(GIFT_RESULTS[a.result] || a.result) + '</td>' +
+          '<td class="hint">' + esc(a.ip || '—') + '</td>' +
+          '<td class="hint">' + esc(a.appVersion || '—') + '</td>' +
+          '<td>' + new Date(a.at).toLocaleString('ru') + '</td>' +
+          '</tr>';
+      }).join('');
+      html += '</tbody></table>';
+    }
+
+    box.innerHTML = html;
+  } catch (e) {
+    box.innerHTML = '<p class="hint">не загрузилось: ' + esc(e.message) + '</p>';
+  }
+}
+
+(function wireGifts() {
+  var navBtn = document.querySelector('[data-tab="gifts"]');
+  if (navBtn) navBtn.addEventListener('click', loadGifts);
+  if (tq('gift-refresh-btn')) tq('gift-refresh-btn').addEventListener('click', loadGifts);
+  if (tq('gift-user-btn')) tq('gift-user-btn').addEventListener('click', function () { showGiftUser(); });
 })();
 
 // Кабинет блогера: цифры по реферальным кодам приходят из Fairy — там оплаты
